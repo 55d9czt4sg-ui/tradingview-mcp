@@ -19,10 +19,14 @@ dependencies = [
     "tradingview-ta>=3.3.0",
     "tradingview-screener>=2.5.0",
     "httpx>=0.27.0",
+    "notion-client>=2.2.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.scripts]
 tradingview-mcp = "tradingview_mcp.server:main"
+tradingview-daily-sync = "tradingview_mcp.daily_sync:main"
+tradingview-setup-notion = "tradingview_mcp.setup_notion:main"
 
 [build-system]
 requires = ["hatchling"]
