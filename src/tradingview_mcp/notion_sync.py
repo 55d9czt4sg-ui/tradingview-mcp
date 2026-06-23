@@ -60,14 +60,18 @@ class NotionSync:
 
     def get_or_create_page(self, symbol: str, exchange: str) -> str:
         """Get existing page for symbol or create new one."""
-        # Query for existing page
-        response = self.client.databases.query(
-            database_id=self.database_id,
-            filter={"property": "Symbol", "title": {"equals": symbol}},
-        )
+        try:
+            # Query for existing page using the correct API
+            response = self.client.request(
+                "POST",
+                f"/databases/{self.database_id}/query",
+                body={"filter": {"property": "Symbol", "title": {"equals": symbol}}},
+            )
 
-        if response["results"]:
-            return response["results"][0]["id"]
+            if response.get("results"):
+                return response["results"][0]["id"]
+        except Exception:
+            pass
 
         # Create new page
         page = self.client.pages.create(
