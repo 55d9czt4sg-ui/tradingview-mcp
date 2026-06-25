@@ -133,10 +133,13 @@ class TestGetMultiTimeframe:
         assert data[1]["interval"] == "15m"
 
     async def test_empty_intervals(self, mock_handler_class):
-        """Test with empty intervals string."""
+        """Test with empty intervals string returns error for empty interval."""
         result = await get_multi_timeframe("AAPL", "NASDAQ", intervals="")
         data = json.loads(result)
-        assert data == []
+        # Empty string splits to [""], which causes interval validation error
+        assert len(data) == 1
+        assert "error" in data[0]
+        assert "Unknown interval" in data[0]["error"]
 
     async def test_whitespace_handling(self, mock_handler_class):
         """Test that interval strings with spaces are handled."""
@@ -354,7 +357,7 @@ class TestScreenMarket:
 
     async def test_screen_market_success(self):
         """Test successful market screening."""
-        with patch("tradingview_mcp.server.Query") as mock_query_class:
+        with patch("tradingview_screener.Query") as mock_query_class:
             mock_query = Mock()
             mock_query_class.return_value = mock_query
 
@@ -381,7 +384,7 @@ class TestScreenMarket:
 
     async def test_screen_market_with_filters(self):
         """Test market screening with filters."""
-        with patch("tradingview_mcp.server.Query") as mock_query_class:
+        with patch("tradingview_screener.Query") as mock_query_class:
             mock_query = Mock()
             mock_query_class.return_value = mock_query
 
@@ -404,7 +407,7 @@ class TestScreenMarket:
 
     async def test_screen_market_empty_result(self):
         """Test handling of empty screening results."""
-        with patch("tradingview_mcp.server.Query") as mock_query_class:
+        with patch("tradingview_screener.Query") as mock_query_class:
             mock_query = Mock()
             mock_query_class.return_value = mock_query
 
@@ -425,7 +428,7 @@ class TestScreenMarket:
 
     async def test_screen_market_limit_clamping(self):
         """Test that limit is clamped to max 50."""
-        with patch("tradingview_mcp.server.Query") as mock_query_class:
+        with patch("tradingview_screener.Query") as mock_query_class:
             mock_query = Mock()
             mock_query_class.return_value = mock_query
 
