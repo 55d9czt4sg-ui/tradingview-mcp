@@ -170,7 +170,7 @@ export async function uiState() {
   return { success: true, ...state };
 }
 
-export async function launch({ port, kill_existing, _deps } = {}) {
+export async function launch({ port, kill_existing, deps: _deps } = {}) {
   const deps = {
     spawn,
     execSync,

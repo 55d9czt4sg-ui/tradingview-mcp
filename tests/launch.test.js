@@ -104,7 +104,7 @@ describe('launch() — path detection', () => {
       existsSync: (p) => p === TV_BIN,
       httpGet: mockHttpGet(1),
     });
-    const result = await launch({ port: 9222, kill_existing: false, _deps: deps });
+    const result = await launch({ port: 9222, kill_existing: false, deps: deps });
     assert.equal(result.success, true);
     assert.equal(result.binary, TV_BIN);
   });
@@ -119,7 +119,7 @@ describe('launch() — path detection', () => {
       },
       httpGet: mockHttpGet(1),
     });
-    const result = await launch({ port: 9222, kill_existing: false, _deps: deps });
+    const result = await launch({ port: 9222, kill_existing: false, deps: deps });
     assert.equal(result.success, true);
     assert.equal(result.binary, '/usr/local/bin/tradingview');
   });
@@ -138,7 +138,7 @@ describe('launch() — path detection', () => {
       },
       httpGet: mockHttpGet(1),
     });
-    const result = await launch({ port: 9222, kill_existing: false, _deps: deps });
+    const result = await launch({ port: 9222, kill_existing: false, deps: deps });
     assert.equal(result.success, true);
     assert.ok(mdfindCalled, 'mdfind was called');
     assert.equal(result.binary, '/custom/TradingView.app/Contents/MacOS/TradingView');
@@ -151,7 +151,7 @@ describe('launch() — path detection', () => {
       execSync: () => { throw new Error('not found'); },
     });
     await assert.rejects(
-      () => launch({ port: 9222, kill_existing: false, _deps: deps }),
+      () => launch({ port: 9222, kill_existing: false, deps: deps }),
       (err) => {
         assert.ok(err.message.includes('TradingView not found'));
         assert.ok(err.message.includes('v2.14.0+'));
@@ -168,7 +168,7 @@ describe('launch() — kill existing', () => {
       httpGet: mockHttpGet(1),
     });
     // kill_existing defaults to true
-    await launch({ port: 9222, _deps: deps });
+    await launch({ port: 9222, deps: deps });
     const pkillCall = deps._execSyncCalls.find(c => c.cmd.includes('pkill'));
     assert.ok(pkillCall, 'pkill was called');
   });
@@ -181,7 +181,7 @@ describe('launch() — kill existing', () => {
       existsSync: (p) => p === winBin,
       httpGet: mockHttpGet(1),
     });
-    await launch({ port: 9222, _deps: deps });
+    await launch({ port: 9222, deps: deps });
     const taskKill = deps._execSyncCalls.find(c => c.cmd.includes('taskkill'));
     assert.ok(taskKill, 'taskkill was called');
   });
@@ -191,7 +191,7 @@ describe('launch() — kill existing', () => {
       existsSync: (p) => p === TV_BIN,
       httpGet: mockHttpGet(1),
     });
-    await launch({ port: 9222, kill_existing: false, _deps: deps });
+    await launch({ port: 9222, kill_existing: false, deps: deps });
     const killCall = deps._execSyncCalls.find(c => c.cmd.includes('pkill') || c.cmd.includes('taskkill'));
     assert.equal(killCall, undefined, 'no kill command issued');
   });
@@ -203,7 +203,7 @@ describe('launch() — direct spawn succeeds (old TradingView)', () => {
       existsSync: (p) => p === TV_BIN,
       httpGet: mockHttpGet(1, { Browser: 'Electron/28', 'User-Agent': 'TV-old' }),
     });
-    const result = await launch({ port: 9222, kill_existing: false, _deps: deps });
+    const result = await launch({ port: 9222, kill_existing: false, deps: deps });
     assert.equal(result.success, true);
     assert.equal(result.cdp_port, 9222);
     assert.equal(result.browser, 'Electron/28');
@@ -216,7 +216,7 @@ describe('launch() — direct spawn succeeds (old TradingView)', () => {
       existsSync: (p) => p === TV_BIN,
       httpGet: mockHttpGet(1),
     });
-    await launch({ port: 4444, kill_existing: false, _deps: deps });
+    await launch({ port: 4444, kill_existing: false, deps: deps });
     const spawnCall = deps._spawnCalls[0];
     assert.equal(spawnCall.args[0], '--remote-debugging-port=4444');
   });
@@ -226,7 +226,7 @@ describe('launch() — direct spawn succeeds (old TradingView)', () => {
       existsSync: (p) => p === TV_BIN,
       httpGet: mockHttpGet(0), // never responds
     });
-    const result = await launch({ port: 9222, kill_existing: false, _deps: deps });
+    const result = await launch({ port: 9222, kill_existing: false, deps: deps });
     assert.equal(result.success, true);
     assert.equal(result.cdp_ready, false);
     assert.ok(result.warning.includes('CDP not responding'));
@@ -245,7 +245,7 @@ describe('launch() — spawn fails, macOS fallback', () => {
       httpGet: mockHttpGet(1, { Browser: 'Electron/38', 'User-Agent': 'TV-new' }),
     });
 
-    const result = await launch({ port: 9222, kill_existing: false, _deps: deps });
+    const result = await launch({ port: 9222, kill_existing: false, deps: deps });
 
     // Should have re-killed before open -a (critical: open -a only works on fresh launch)
     const pkillCall = deps._execSyncCalls.find(c => c.cmd.includes('pkill'));
@@ -286,7 +286,7 @@ describe('launch() — spawn fails, macOS fallback', () => {
       httpGet: mockHttpGet(0), // CDP never responds
     });
 
-    const result = await launch({ port: 9222, kill_existing: false, _deps: deps });
+    const result = await launch({ port: 9222, kill_existing: false, deps: deps });
 
     // Second spawn should be bare (no args)
     assert.equal(deps._spawnCalls.length, 2);
@@ -304,7 +304,7 @@ describe('launch() — spawn fails, macOS fallback', () => {
       httpGet: mockHttpGet(0), // never responds
     });
 
-    const result = await launch({ port: 9222, kill_existing: false, _deps: deps });
+    const result = await launch({ port: 9222, kill_existing: false, deps: deps });
     assert.equal(result.success, false);
     assert.ok(result.error.includes('pkill -f TradingView'), 'error includes manual workaround');
     assert.ok(result.error.includes('open -a TradingView'), 'error includes open -a hint');
@@ -329,7 +329,7 @@ describe('launch() — spawn fails, Linux/Windows fallback', () => {
       httpGet: mockHttpGet(1),
     });
 
-    const result = await launch({ port: 9222, kill_existing: false, _deps: deps });
+    const result = await launch({ port: 9222, kill_existing: false, deps: deps });
 
     assert.equal(deps._spawnCalls.length, 2, 'spawn called twice');
     const fallbackCall = deps._spawnCalls[1];
@@ -353,7 +353,7 @@ describe('launch() — spawn fails, Linux/Windows fallback', () => {
       httpGet: mockHttpGet(1),
     });
 
-    const result = await launch({ port: 9222, kill_existing: false, _deps: deps });
+    const result = await launch({ port: 9222, kill_existing: false, deps: deps });
     const fallbackCall = deps._spawnCalls[1];
     assert.equal(fallbackCall.opts.env.REMOTE_DEBUGGING_PORT, '9222');
   });
@@ -371,7 +371,7 @@ describe('launch() — spawn error event', () => {
       httpGet: mockHttpGet(0),
     });
 
-    const result = await launch({ port: 9222, kill_existing: false, _deps: deps });
+    const result = await launch({ port: 9222, kill_existing: false, deps: deps });
     // Should have triggered fallback: pkill then open -a
     const pkillCall = deps._execSyncCalls.find(c => c.cmd && c.cmd.includes('pkill'));
     assert.ok(pkillCall, 'pkill called in fallback after spawn error');
@@ -386,7 +386,7 @@ describe('launch() — CDP polling', () => {
       existsSync: (p) => p === TV_BIN,
       httpGet: mockHttpGet(3, { Browser: 'SlowStart', 'User-Agent': 'test' }),
     });
-    const result = await launch({ port: 9222, kill_existing: false, _deps: deps });
+    const result = await launch({ port: 9222, kill_existing: false, deps: deps });
     assert.equal(result.success, true);
     assert.equal(result.browser, 'SlowStart');
   });
@@ -396,7 +396,7 @@ describe('launch() — CDP polling', () => {
       existsSync: (p) => p === TV_BIN,
       httpGet: mockHttpGet(1),
     });
-    const result = await launch({ port: 8888, kill_existing: false, _deps: deps });
+    const result = await launch({ port: 8888, kill_existing: false, deps: deps });
     assert.equal(result.cdp_port, 8888);
     assert.equal(result.cdp_url, 'http://localhost:8888');
   });
@@ -408,7 +408,7 @@ describe('launch() — defaults', () => {
       existsSync: (p) => p === TV_BIN,
       httpGet: mockHttpGet(1),
     });
-    const result = await launch({ kill_existing: false, _deps: deps });
+    const result = await launch({ kill_existing: false, deps: deps });
     assert.equal(result.cdp_port, 9222);
     assert.equal(deps._spawnCalls[0].args[0], '--remote-debugging-port=9222');
   });
@@ -418,7 +418,7 @@ describe('launch() — defaults', () => {
       existsSync: (p) => p === TV_BIN,
       httpGet: mockHttpGet(1),
     });
-    await launch({ _deps: deps });
+    await launch({ deps: deps });
     const pkillCall = deps._execSyncCalls.find(c => c.cmd.includes('pkill'));
     assert.ok(pkillCall, 'kill was called by default');
   });
