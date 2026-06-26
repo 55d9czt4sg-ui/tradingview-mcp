@@ -28,5 +28,20 @@ tradingview-mcp = "tradingview_mcp.server:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "pytest-cov>=4.0",
+    "pytest-mock>=3.10",
+    "httpx[testing]>=0.27",
+    "pandas>=2.0",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/tradingview_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+asyncio_mode = "auto"
