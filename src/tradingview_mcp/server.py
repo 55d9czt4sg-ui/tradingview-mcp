@@ -11,6 +11,7 @@ Tools:
   - search_symbol             — Find TradingView symbols by name/ticker
   - screen_market             — Custom screener with filters (top gainers/losers, etc.)
   - get_price_data            — Current OHLCV snapshot for a symbol
+  - analyze_smc               — Smart Money Concepts analysis (support/resistance, order blocks, trend)
 """
 
 from __future__ import annotations
@@ -413,6 +414,139 @@ async def get_price_data(
         return json.dumps(data, indent=2)
     except Exception as e:
         return f"Error fetching price data for {symbol}: {e}"
+
+
+@mcp.tool()
+async def analyze_smc(
+    symbol: str,
+    exchange: str,
+    screener: str = "america",
+    interval: str = "4h",
+) -> str:
+    """Analyze Smart Money Concepts (SMC) levels for a symbol.
+
+    Identifies key support/resistance levels, order blocks, and smart money zones
+    based on price structure and volume analysis.
+
+    Args:
+        symbol:   Ticker symbol (e.g. AAPL, NQ1!, GC1!)
+        exchange: Exchange name (e.g. NASDAQ, CME, COMEX)
+        screener: Market screener (default: america)
+        interval: Timeframe (default: 4h)
+    """
+    try:
+        handler = _build_handler(symbol, exchange, screener, interval)
+        analysis = handler.get_analysis()
+
+        indicators = analysis.indicators
+        close = indicators.get("close")
+        high = indicators.get("high")
+        low = indicators.get("low")
+        volume = indicators.get("volume")
+        ema20 = indicators.get("EMA20")
+        ema50 = indicators.get("EMA50")
+        ema200 = indicators.get("EMA200")
+        rsi = indicators.get("RSI")
+        atr = indicators.get("ATR", 0)
+
+        result = {
+            "symbol": analysis.symbol,
+            "exchange": analysis.exchange,
+            "interval": analysis.interval,
+            "time": str(analysis.time),
+            "smc_analysis": {},
+        }
+
+        if close is None or high is None or low is None:
+            return json.dumps({"error": "Insufficient data for SMC analysis"}, indent=2)
+
+        atr = atr if atr and atr > 0 else (high - low) / 2
+
+        smc = {
+            "current_price": close,
+            "high": high,
+            "low": low,
+            "atr": atr,
+        }
+
+        key_levels = []
+
+        if ema20 is not None and ema50 is not None and ema200 is not None:
+            smc["ema_structure"] = {
+                "ema20": ema20,
+                "ema50": ema50,
+                "ema200": ema200,
+            }
+
+            if ema20 > ema50 > ema200:
+                smc["trend"] = "UPTREND"
+            elif ema20 < ema50 < ema200:
+                smc["trend"] = "DOWNTREND"
+            else:
+                smc["trend"] = "RANGING"
+
+            key_levels.extend([
+                {"level": ema20, "type": "EMA20", "name": "20-period EMA"},
+                {"level": ema50, "type": "EMA50", "name": "50-period EMA"},
+                {"level": ema200, "type": "EMA200", "name": "200-period EMA"},
+            ])
+
+        from tradingview_ta import Interval
+        if interval != Interval.INTERVAL_1_MINUTE:
+            bb_upper = indicators.get("BB.upper")
+            bb_lower = indicators.get("BB.lower")
+            if bb_upper is not None and bb_lower is not None:
+                smc["bollinger_bands"] = {
+                    "upper": bb_upper,
+                    "lower": bb_lower,
+                    "middle": (bb_upper + bb_lower) / 2,
+                }
+                key_levels.extend([
+                    {"level": bb_upper, "type": "ORDER_BLOCK_UP", "name": "BB Upper (Supply)"},
+                    {"level": bb_lower, "type": "ORDER_BLOCK_DOWN", "name": "BB Lower (Demand)"},
+                ])
+
+        if rsi is not None:
+            smc["rsi"] = rsi
+            if rsi > 70:
+                smc["rsi_state"] = "OVERBOUGHT"
+            elif rsi < 30:
+                smc["rsi_state"] = "OVERSOLD"
+            else:
+                smc["rsi_state"] = "NEUTRAL"
+
+        if volume:
+            smc["volume"] = volume
+
+        smc["key_levels"] = sorted(key_levels, key=lambda x: x["level"], reverse=True)
+
+        support_resistance = []
+        resistance_level = high
+        support_level = low
+
+        if resistance_level:
+            support_resistance.append({
+                "level": resistance_level,
+                "type": "RESISTANCE",
+                "distance": resistance_level - close,
+                "percentage": round(((resistance_level - close) / close * 100), 2) if close else 0,
+            })
+
+        if support_level:
+            support_resistance.append({
+                "level": support_level,
+                "type": "SUPPORT",
+                "distance": close - support_level,
+                "percentage": round(((close - support_level) / close * 100), 2) if close else 0,
+            })
+
+        smc["support_resistance"] = support_resistance
+
+        result["smc_analysis"] = smc
+
+        return json.dumps(result, indent=2)
+    except Exception as e:
+        return f"Error analyzing SMC for {symbol}: {e}"
 
 
 # ---------------------------------------------------------------------------

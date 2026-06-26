@@ -11,6 +11,7 @@ from tradingview_mcp.server import (
     search_symbol,
     screen_market,
     get_price_data,
+    analyze_smc,
 )
 
 
@@ -446,3 +447,121 @@ class TestScreenMarket:
             # Verify limit was clamped to 50
             call_args = mock_query.limit.call_args
             assert call_args[0][0] == 50  # Should be 50, not 100
+
+
+@pytest.mark.asyncio
+class TestAnalyzeSMC:
+    """Tests for analyze_smc() tool."""
+
+    async def test_success_with_full_indicators(self, mock_handler_class):
+        """Test successful SMC analysis with complete indicator data."""
+        handler_class, mock_handler = mock_handler_class
+        mock_analysis = Mock()
+        mock_analysis.symbol = "AAPL"
+        mock_analysis.exchange = "NASDAQ"
+        mock_analysis.interval = "4h"
+        mock_analysis.time = "2026-06-25 16:00"
+        mock_analysis.indicators = {
+            "close": 190.5,
+            "high": 192.0,
+            "low": 188.0,
+            "volume": 45000000,
+            "EMA20": 189.5,
+            "EMA50": 188.0,
+            "EMA200": 185.5,
+            "RSI": 72,
+            "ATR": 2.5,
+            "BB.upper": 195.0,
+            "BB.lower": 186.0,
+        }
+
+        mock_handler.get_analysis.return_value = mock_analysis
+
+        result = await analyze_smc("AAPL", "NASDAQ")
+        data = json.loads(result)
+
+        assert data["symbol"] == "AAPL"
+        assert "smc_analysis" in data
+        assert data["smc_analysis"]["current_price"] == 190.5
+        assert data["smc_analysis"]["trend"] == "UPTREND"
+        assert data["smc_analysis"]["rsi_state"] == "OVERBOUGHT"
+        assert len(data["smc_analysis"]["support_resistance"]) > 0
+
+    async def test_success_with_minimal_indicators(self, mock_handler_class):
+        """Test SMC analysis with only essential data."""
+        handler_class, mock_handler = mock_handler_class
+        mock_analysis = Mock()
+        mock_analysis.symbol = "BTC"
+        mock_analysis.exchange = "BINANCE"
+        mock_analysis.interval = "4h"
+        mock_analysis.time = "2026-06-25 16:00"
+        mock_analysis.indicators = {
+            "close": 50000,
+            "high": 51000,
+            "low": 49000,
+            "volume": 1000000,
+        }
+
+        mock_handler.get_analysis.return_value = mock_analysis
+
+        result = await analyze_smc("BTC", "BINANCE", screener="crypto")
+        data = json.loads(result)
+
+        assert data["symbol"] == "BTC"
+        assert "smc_analysis" in data
+        assert data["smc_analysis"]["current_price"] == 50000
+        assert data["smc_analysis"]["high"] == 51000
+        assert data["smc_analysis"]["low"] == 49000
+
+    async def test_insufficient_data(self, mock_handler_class):
+        """Test SMC analysis with insufficient data."""
+        handler_class, mock_handler = mock_handler_class
+        mock_analysis = Mock()
+        mock_analysis.symbol = "INVALID"
+        mock_analysis.exchange = "FAKE"
+        mock_analysis.interval = "4h"
+        mock_analysis.time = "2026-06-25 16:00"
+        mock_analysis.indicators = {}
+
+        mock_handler.get_analysis.return_value = mock_analysis
+
+        result = await analyze_smc("INVALID", "FAKE")
+        data = json.loads(result)
+
+        assert "error" in data
+
+    async def test_downtrend_detection(self, mock_handler_class):
+        """Test SMC trend detection for downtrend."""
+        handler_class, mock_handler = mock_handler_class
+        mock_analysis = Mock()
+        mock_analysis.symbol = "AAPL"
+        mock_analysis.exchange = "NASDAQ"
+        mock_analysis.interval = "4h"
+        mock_analysis.time = "2026-06-25 16:00"
+        mock_analysis.indicators = {
+            "close": 180.0,
+            "high": 181.0,
+            "low": 179.0,
+            "EMA20": 179.5,
+            "EMA50": 181.0,
+            "EMA200": 185.0,
+            "RSI": 25,
+        }
+
+        mock_handler.get_analysis.return_value = mock_analysis
+
+        result = await analyze_smc("AAPL", "NASDAQ")
+        data = json.loads(result)
+
+        assert data["smc_analysis"]["trend"] == "DOWNTREND"
+        assert data["smc_analysis"]["rsi_state"] == "OVERSOLD"
+
+    async def test_handler_exception(self, mock_handler_class):
+        """Test that exceptions are caught and returned as error string."""
+        handler_class, mock_handler = mock_handler_class
+        mock_handler.get_analysis.side_effect = Exception("Connection error")
+
+        result = await analyze_smc("INVALID", "FAKE")
+
+        assert "Error analyzing SMC" in result
+        assert not result.startswith("{")  # Not JSON
