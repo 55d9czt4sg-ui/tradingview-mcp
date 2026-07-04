@@ -12,6 +12,8 @@ from tradingview_mcp.server import (
     screen_market,
     get_price_data,
     analyze_smc,
+    analyze_financials,
+    analyze_saas_metrics,
 )
 
 
@@ -565,3 +567,353 @@ class TestAnalyzeSMC:
 
         assert "Error analyzing SMC" in result
         assert not result.startswith("{")  # Not JSON
+
+
+@pytest.mark.asyncio
+class TestAnalyzeFinancials:
+    """Tests for analyze_financials() tool."""
+
+    def _make_screener_mock(self, mock_query_class, row_data: dict):
+        """Helper to wire up a tradingview_screener.Query mock."""
+        import pandas as pd
+
+        mock_query = Mock()
+        mock_query_class.return_value = mock_query
+        mock_query.select.return_value = mock_query
+        mock_query.where.return_value = mock_query
+        mock_query.set_markets.return_value = mock_query
+        mock_query.limit.return_value = mock_query
+        df = pd.DataFrame([row_data])
+        mock_query.get_scanner_data.return_value = (1, df)
+        return mock_query
+
+    async def test_success_with_full_data(self):
+        """Test successful financial data retrieval with all fields populated."""
+        with patch("tradingview_screener.Query") as mock_query_class:
+            self._make_screener_mock(
+                mock_query_class,
+                {
+                    "name": "AAPL",
+                    "close": 190.0,
+                    "market_cap_basic": 3_000_000_000_000,
+                    "enterprise_value_fq": 3_050_000_000_000,
+                    "price_earnings_ttm": 30.5,
+                    "price_to_book_fq": 48.2,
+                    "price_to_sales_ttm": 8.1,
+                    "enterprise_value_ebitda_ttm": 24.3,
+                    "gross_profit_margin_ttm": 0.443,
+                    "operating_margin_ttm": 0.306,
+                    "net_profit_margin_ttm": 0.253,
+                    "return_on_equity": 1.47,
+                    "return_on_assets": 0.22,
+                    "revenue_growth_rate_ttm_5y": 0.085,
+                    "earnings_per_share_basic_ttm": 6.45,
+                    "earnings_per_share_diluted_yoy_growth_ttm": 0.112,
+                    "debt_to_equity": 1.75,
+                    "current_ratio": 1.07,
+                    "quick_ratio": 0.98,
+                    "book_value_per_share_quarterly": 4.01,
+                    "dividends_yield_current": 0.0046,
+                    "description": "Apple Inc.",
+                    "exchange": "NASDAQ",
+                },
+            )
+
+            result = await analyze_financials("AAPL")
+            data = json.loads(result)
+
+            assert data["symbol"] == "AAPL"
+            assert data["exchange"] == "NASDAQ"
+            assert data["price"] == 190.0
+            assert data["valuation"]["pe_ratio_ttm"] == 30.5
+            assert data["profitability"]["gross_margin_pct"] == round(0.443 * 100, 2)
+            assert data["growth"]["revenue_5y_cagr_pct"] == round(0.085 * 100, 2)
+            assert data["balance_sheet"]["debt_to_equity"] == 1.75
+            assert data["per_share"]["eps_basic_ttm"] == 6.45
+
+    async def test_symbol_not_found(self):
+        """Test graceful handling when symbol is not found in screener."""
+        with patch("tradingview_screener.Query") as mock_query_class:
+            import pandas as pd
+
+            mock_query = Mock()
+            mock_query_class.return_value = mock_query
+            mock_query.select.return_value = mock_query
+            mock_query.where.return_value = mock_query
+            mock_query.set_markets.return_value = mock_query
+            mock_query.limit.return_value = mock_query
+            mock_query.get_scanner_data.return_value = (0, pd.DataFrame())
+
+            result = await analyze_financials("FAKE")
+            data = json.loads(result)
+
+            assert "error" in data
+            assert "FAKE" in data["error"]
+
+    async def test_nan_fields_become_none(self):
+        """Test that NaN values in the screener response are returned as null."""
+        with patch("tradingview_screener.Query") as mock_query_class:
+            import pandas as pd
+            import math
+
+            self._make_screener_mock(
+                mock_query_class,
+                {
+                    "name": "XYZ",
+                    "close": 50.0,
+                    "market_cap_basic": float("nan"),
+                    "enterprise_value_fq": float("nan"),
+                    "price_earnings_ttm": float("nan"),
+                    "price_to_book_fq": float("nan"),
+                    "price_to_sales_ttm": float("nan"),
+                    "enterprise_value_ebitda_ttm": float("nan"),
+                    "gross_profit_margin_ttm": float("nan"),
+                    "operating_margin_ttm": float("nan"),
+                    "net_profit_margin_ttm": float("nan"),
+                    "return_on_equity": float("nan"),
+                    "return_on_assets": float("nan"),
+                    "revenue_growth_rate_ttm_5y": float("nan"),
+                    "earnings_per_share_basic_ttm": float("nan"),
+                    "earnings_per_share_diluted_yoy_growth_ttm": float("nan"),
+                    "debt_to_equity": float("nan"),
+                    "current_ratio": float("nan"),
+                    "quick_ratio": float("nan"),
+                    "book_value_per_share_quarterly": float("nan"),
+                    "dividends_yield_current": float("nan"),
+                    "description": float("nan"),
+                    "exchange": float("nan"),
+                },
+            )
+
+            result = await analyze_financials("XYZ")
+            data = json.loads(result)
+
+            assert data["symbol"] == "XYZ"
+            assert data["market_cap"] is None
+            assert data["valuation"]["pe_ratio_ttm"] is None
+            assert data["profitability"]["gross_margin_pct"] is None
+
+    async def test_exception_handling(self):
+        """Test that unexpected exceptions are caught."""
+        with patch("tradingview_screener.Query") as mock_query_class:
+            mock_query_class.side_effect = RuntimeError("API down")
+
+            result = await analyze_financials("AAPL")
+
+            assert "Error fetching financial data" in result
+            assert "AAPL" in result
+
+    async def test_import_error(self):
+        """Test graceful message when tradingview_screener is missing."""
+        import sys
+        import builtins
+
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "tradingview_screener":
+                raise ImportError("No module named 'tradingview_screener'")
+            return real_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            result = await analyze_financials("AAPL")
+            assert "tradingview-screener is not installed" in result
+
+
+@pytest.mark.asyncio
+class TestAnalyzeSaasMetrics:
+    """Tests for analyze_saas_metrics() tool."""
+
+    async def test_rule_of_40_computed(self):
+        """Test Rule of 40 calculation with manual inputs."""
+        result = await analyze_saas_metrics(
+            arr_growth_pct=50.0,
+            fcf_margin_pct=10.0,
+        )
+        data = json.loads(result)
+
+        assert "rule_of_40" in data["computed"]
+        assert data["computed"]["rule_of_40"]["value"] == 60.0
+        assert "Good" in data["computed"]["rule_of_40"]["grade"]
+
+    async def test_rule_of_40_below_benchmark(self):
+        """Test Rule of 40 below benchmark grade."""
+        result = await analyze_saas_metrics(
+            arr_growth_pct=20.0,
+            fcf_margin_pct=5.0,
+        )
+        data = json.loads(result)
+
+        assert data["computed"]["rule_of_40"]["value"] == 25.0
+        assert "Below benchmark" in data["computed"]["rule_of_40"]["grade"]
+
+    async def test_ltv_cac_and_payback_computed(self):
+        """Test LTV, LTV/CAC, and CAC payback calculations."""
+        result = await analyze_saas_metrics(
+            arpu=100.0,
+            gross_margin_pct=80.0,
+            churn_rate_pct=2.0,
+            cac=1200.0,
+        )
+        data = json.loads(result)
+
+        # LTV = 100 * 0.8 / 0.02 = 4000
+        assert data["computed"]["ltv"] == 4000.0
+        # LTV/CAC = 4000 / 1200 ≈ 3.33
+        assert data["computed"]["ltv_cac_ratio"]["value"] == pytest.approx(3.33, abs=0.01)
+        assert "Excellent" in data["computed"]["ltv_cac_ratio"]["grade"]
+        # CAC payback = 1200 / (100 * 0.8) = 15 months
+        assert data["computed"]["cac_payback_months"]["value"] == pytest.approx(15.0, abs=0.1)
+
+    async def test_magic_number_computed(self):
+        """Test Magic Number calculation."""
+        result = await analyze_saas_metrics(
+            net_new_arr=2_000_000.0,
+            sales_marketing_spend=2_500_000.0,
+        )
+        data = json.loads(result)
+
+        # magic = 2M / 2.5M = 0.8
+        assert data["computed"]["magic_number"]["value"] == pytest.approx(0.8, abs=0.01)
+        assert "Excellent" in data["computed"]["magic_number"]["grade"]
+
+    async def test_burn_multiple_computed(self):
+        """Test Burn Multiple calculation."""
+        result = await analyze_saas_metrics(
+            net_burn=500_000.0,
+            net_new_arr=1_000_000.0,
+        )
+        data = json.loads(result)
+
+        # burn multiple = 500k / 1M = 0.5
+        assert data["computed"]["burn_multiple"]["value"] == pytest.approx(0.5, abs=0.01)
+        assert "Excellent" in data["computed"]["burn_multiple"]["grade"]
+
+    async def test_nrr_grading(self):
+        """Test NRR grades."""
+        result_best = await analyze_saas_metrics(net_revenue_retention_pct=125.0)
+        data_best = json.loads(result_best)
+        assert "Best-in-class" in data_best["computed"]["net_revenue_retention"]["grade"]
+
+        result_good = await analyze_saas_metrics(net_revenue_retention_pct=110.0)
+        data_good = json.loads(result_good)
+        assert "Good" in data_good["computed"]["net_revenue_retention"]["grade"]
+
+        result_bad = await analyze_saas_metrics(net_revenue_retention_pct=95.0)
+        data_bad = json.loads(result_bad)
+        assert "Below 100%" in data_bad["computed"]["net_revenue_retention"]["grade"]
+
+    async def test_gross_margin_grading(self):
+        """Test gross margin grading tiers."""
+        for pct, expected in [
+            (80.0, "Excellent SaaS"),
+            (70.0, "Good SaaS"),
+            (55.0, "Acceptable"),
+            (40.0, "Low for SaaS"),
+        ]:
+            result = await analyze_saas_metrics(gross_margin_pct=pct)
+            data = json.loads(result)
+            assert expected in data["computed"]["gross_margin_assessment"]["grade"]
+
+    async def test_missing_rule_of_40_inputs_adds_warning(self):
+        """Test that missing Rule of 40 inputs produce a warning."""
+        result = await analyze_saas_metrics(arr_growth_pct=30.0)
+        data = json.loads(result)
+
+        assert "warnings" in data
+        assert any("fcf_margin_pct" in w for w in data["warnings"])
+        assert "rule_of_40" not in data["computed"]
+
+    async def test_public_symbol_fetches_tv_data(self):
+        """Test that providing a symbol fetches TradingView data."""
+        with patch("tradingview_screener.Query") as mock_query_class:
+            import pandas as pd
+
+            mock_query = Mock()
+            mock_query_class.return_value = mock_query
+            mock_query.select.return_value = mock_query
+            mock_query.where.return_value = mock_query
+            mock_query.set_markets.return_value = mock_query
+            mock_query.limit.return_value = mock_query
+            df = pd.DataFrame([{
+                "name": "CRM",
+                "gross_profit_margin_ttm": 0.76,
+                "revenue_growth_rate_ttm_5y": 0.18,
+                "operating_margin_ttm": 0.05,
+                "net_profit_margin_ttm": 0.03,
+                "market_cap_basic": 250_000_000_000,
+                "close": 270.0,
+            }])
+            mock_query.get_scanner_data.return_value = (1, df)
+
+            result = await analyze_saas_metrics(symbol="CRM", fcf_margin_pct=5.0)
+            data = json.loads(result)
+
+            assert data["symbol"] == "CRM"
+            assert data["price"] == 270.0
+            # gross_margin should be fetched from TV (76%)
+            assert data["inputs"]["gross_margin_pct"] == pytest.approx(76.0, abs=0.1)
+            # Rule of 40 uses TV revenue growth (18%) + supplied fcf_margin (5%)
+            assert data["computed"]["rule_of_40"]["value"] == pytest.approx(23.0, abs=0.1)
+
+    async def test_manual_inputs_override_tv_data(self):
+        """Test that manual inputs take precedence over TradingView data."""
+        with patch("tradingview_screener.Query") as mock_query_class:
+            import pandas as pd
+
+            mock_query = Mock()
+            mock_query_class.return_value = mock_query
+            mock_query.select.return_value = mock_query
+            mock_query.where.return_value = mock_query
+            mock_query.set_markets.return_value = mock_query
+            mock_query.limit.return_value = mock_query
+            df = pd.DataFrame([{
+                "name": "SNOW",
+                "gross_profit_margin_ttm": 0.65,
+                "revenue_growth_rate_ttm_5y": 0.40,
+                "operating_margin_ttm": -0.10,
+                "net_profit_margin_ttm": -0.05,
+                "market_cap_basic": 50_000_000_000,
+                "close": 155.0,
+            }])
+            mock_query.get_scanner_data.return_value = (1, df)
+
+            # Override both gross_margin and arr_growth with manual values
+            result = await analyze_saas_metrics(
+                symbol="SNOW",
+                gross_margin_pct=70.0,
+                arr_growth_pct=55.0,
+                fcf_margin_pct=8.0,
+            )
+            data = json.loads(result)
+
+            # Manual overrides should win
+            assert data["inputs"]["gross_margin_pct"] == 70.0
+            assert data["inputs"]["arr_growth_pct"] == 55.0
+            assert data["computed"]["rule_of_40"]["value"] == pytest.approx(63.0, abs=0.1)
+
+    async def test_tv_fetch_failure_degrades_gracefully(self):
+        """Test that a TradingView fetch failure adds a warning but doesn't crash."""
+        with patch("tradingview_screener.Query") as mock_query_class:
+            mock_query_class.side_effect = RuntimeError("screener down")
+
+            result = await analyze_saas_metrics(
+                symbol="DDOG",
+                arr_growth_pct=30.0,
+                fcf_margin_pct=10.0,
+            )
+            data = json.loads(result)
+
+            # Should still compute Rule of 40 using the manual inputs
+            assert data["computed"]["rule_of_40"]["value"] == 40.0
+            # And surface a warning about the failed fetch
+            assert any("Could not fetch TradingView data" in w for w in data.get("warnings", []))
+
+    async def test_no_inputs_returns_empty_computed(self):
+        """Test that no inputs returns an empty computed block with warnings."""
+        result = await analyze_saas_metrics()
+        data = json.loads(result)
+
+        assert "computed" in data
+        assert "warnings" in data
+        assert len(data["computed"]) == 0
