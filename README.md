@@ -25,6 +25,8 @@ This MCP server bridges AI assistants and TradingView's market data, enabling na
 | `search_symbol` | Find symbols by name or ticker | Symbol, exchange, type, description |
 | `screen_market` | Find top gainers, losers, active instruments | Ranked list with technical signals |
 | `get_price_data` | Current snapshot + key levels | OHLCV + pivots, BB, VWAP, P.SAR, ATR |
+| `analyze_financials` | Fundamental financial analysis for a stock | Valuation, profitability, growth, balance-sheet ratios |
+| `analyze_saas_metrics` | SaaS business health metrics | Rule of 40, LTV/CAC, CAC payback, Magic Number, Burn Multiple |
 
 ## Supported Markets
 
@@ -215,6 +217,17 @@ Once connected to your MCP client, ask your AI assistant any of these:
 - "Check if there's a golden cross on MSFT's daily chart (EMA50 > EMA200)"
 - "Which sectors have the best momentum right now?"
 - "Screen for stocks with high volume and small price moves (low volatility breakout candidates)"
+
+### Fundamental Analysis
+- "Show me the full financial analysis for AAPL — valuation, margins, and balance sheet"
+- "What's the P/E ratio, gross margin, and debt-to-equity for MSFT?"
+- "Compare the revenue growth and return on equity for GOOGL vs META"
+
+### SaaS Metrics
+- "Analyze Salesforce (CRM) as a SaaS company — Rule of 40, gross margin, and NRR context"
+- "My SaaS has 40% ARR growth, 75% gross margin, and 12% FCF margin — is that good?"
+- "Calculate my LTV/CAC: ARPU $200/month, gross margin 80%, churn 1.5%, CAC $2400"
+- "My SaaS added $500K net new ARR last quarter on $400K S&M spend — what's the Magic Number?"
 
 ## Available Indicators
 

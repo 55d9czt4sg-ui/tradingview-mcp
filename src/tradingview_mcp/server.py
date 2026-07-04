@@ -12,6 +12,8 @@ Tools:
   - screen_market             — Custom screener with filters (top gainers/losers, etc.)
   - get_price_data            — Current OHLCV snapshot for a symbol
   - analyze_smc               — Smart Money Concepts analysis (support/resistance, order blocks, trend)
+  - analyze_financials        — Fundamental financial data (valuation, profitability, growth, balance sheet)
+  - analyze_saas_metrics      — SaaS business health (Rule of 40, LTV/CAC, Magic Number, burn multiple)
 """
 
 from __future__ import annotations
@@ -547,6 +549,309 @@ async def analyze_smc(
         return json.dumps(result, indent=2)
     except Exception as e:
         return f"Error analyzing SMC for {symbol}: {e}"
+
+
+@mcp.tool()
+async def analyze_financials(
+    symbol: str,
+    screener: str = "america",
+) -> str:
+    """Get comprehensive fundamental financial data for a stock.
+
+    Retrieves valuation multiples, profitability ratios, growth metrics,
+    and balance-sheet health — the core metrics a financial analyst would review.
+
+    Args:
+        symbol:   Ticker symbol (e.g. AAPL, MSFT, GOOGL, AMZN)
+        screener: Market screener — america, uk, india, crypto, etc. (default: america)
+    """
+    try:
+        from tradingview_screener import Query, Column
+
+        columns = [
+            "name", "close", "market_cap_basic", "enterprise_value_fq",
+            "price_earnings_ttm", "price_to_book_fq", "price_to_sales_ttm",
+            "enterprise_value_ebitda_ttm",
+            "gross_profit_margin_ttm", "operating_margin_ttm", "net_profit_margin_ttm",
+            "return_on_equity", "return_on_assets",
+            "revenue_growth_rate_ttm_5y", "earnings_per_share_basic_ttm",
+            "earnings_per_share_diluted_yoy_growth_ttm",
+            "debt_to_equity", "current_ratio", "quick_ratio",
+            "book_value_per_share_quarterly", "dividends_yield_current",
+            "description", "exchange",
+        ]
+
+        count, rows = (
+            Query()
+            .select(*columns)
+            .where(Column("name") == symbol.upper())
+            .set_markets(_resolve_screener(screener))
+            .limit(1)
+            .get_scanner_data()
+        )
+
+        if count == 0 or rows.empty:
+            return json.dumps(
+                {
+                    "error": (
+                        f"Symbol '{symbol}' not found in screener '{screener}'. "
+                        "Try a different screener (e.g. 'uk', 'india', 'crypto')."
+                    )
+                },
+                indent=2,
+            )
+
+        raw = {k: (None if str(v) == "nan" else v) for k, v in rows.iloc[0].to_dict().items()}
+
+        def _pct(v: float | None) -> float | None:
+            return round(v * 100, 2) if v is not None else None
+
+        result = {
+            "symbol": symbol.upper(),
+            "description": raw.get("description"),
+            "exchange": raw.get("exchange"),
+            "price": raw.get("close"),
+            "market_cap": raw.get("market_cap_basic"),
+            "enterprise_value": raw.get("enterprise_value_fq"),
+            "valuation": {
+                "pe_ratio_ttm": raw.get("price_earnings_ttm"),
+                "pb_ratio": raw.get("price_to_book_fq"),
+                "ps_ratio_ttm": raw.get("price_to_sales_ttm"),
+                "ev_ebitda_ttm": raw.get("enterprise_value_ebitda_ttm"),
+            },
+            "profitability": {
+                "gross_margin_pct": _pct(raw.get("gross_profit_margin_ttm")),
+                "operating_margin_pct": _pct(raw.get("operating_margin_ttm")),
+                "net_margin_pct": _pct(raw.get("net_profit_margin_ttm")),
+                "roe_pct": _pct(raw.get("return_on_equity")),
+                "roa_pct": _pct(raw.get("return_on_assets")),
+            },
+            "growth": {
+                "revenue_5y_cagr_pct": _pct(raw.get("revenue_growth_rate_ttm_5y")),
+                "eps_basic_ttm": raw.get("earnings_per_share_basic_ttm"),
+                "eps_yoy_growth_pct": _pct(raw.get("earnings_per_share_diluted_yoy_growth_ttm")),
+            },
+            "balance_sheet": {
+                "debt_to_equity": raw.get("debt_to_equity"),
+                "current_ratio": raw.get("current_ratio"),
+                "quick_ratio": raw.get("quick_ratio"),
+            },
+            "per_share": {
+                "eps_basic_ttm": raw.get("earnings_per_share_basic_ttm"),
+                "book_value_per_share": raw.get("book_value_per_share_quarterly"),
+                "dividend_yield_pct": _pct(raw.get("dividends_yield_current")),
+            },
+        }
+
+        return json.dumps(result, indent=2, default=str)
+    except ImportError:
+        return (
+            "tradingview-screener is not installed. "
+            "Run: pip install tradingview-screener"
+        )
+    except Exception as e:
+        return f"Error fetching financial data for {symbol}: {e}"
+
+
+@mcp.tool()
+async def analyze_saas_metrics(
+    symbol: str = "",
+    screener: str = "america",
+    arr: float | None = None,
+    arr_growth_pct: float | None = None,
+    gross_margin_pct: float | None = None,
+    net_revenue_retention_pct: float | None = None,
+    cac: float | None = None,
+    arpu: float | None = None,
+    churn_rate_pct: float | None = None,
+    fcf_margin_pct: float | None = None,
+    sales_marketing_spend: float | None = None,
+    net_new_arr: float | None = None,
+    net_burn: float | None = None,
+) -> str:
+    """Analyze SaaS business health and compute key SaaS metrics.
+
+    Works in two modes:
+    1. **Public company** — supply a stock *symbol* to fetch revenue growth and
+       gross margin from TradingView automatically.
+    2. **Manual / private** — leave *symbol* empty and provide your own inputs.
+
+    Computes: Rule of 40, LTV/CAC ratio, CAC payback, Magic Number, Burn Multiple,
+    and grades each metric against SaaS industry benchmarks.
+
+    Args:
+        symbol:                    Ticker for a public SaaS company (e.g. CRM, SNOW, DDOG)
+        screener:                  Market screener for symbol lookup (default: america)
+        arr:                       Annual Recurring Revenue in dollars (optional)
+        arr_growth_pct:            YoY ARR growth % — e.g. 40.0 for 40% (overrides fetched value)
+        gross_margin_pct:          Gross margin % — e.g. 75.0 (overrides fetched value)
+        net_revenue_retention_pct: Net Revenue Retention % — e.g. 120.0 for 120%
+        cac:                       Customer Acquisition Cost in dollars
+        arpu:                      Average Revenue Per User per month in dollars
+        churn_rate_pct:            Monthly customer churn rate % — e.g. 2.0 for 2%
+        fcf_margin_pct:            Free Cash Flow margin % — e.g. 15.0 (used in Rule of 40)
+        sales_marketing_spend:     S&M spend for the quarter in dollars (for Magic Number)
+        net_new_arr:               Net new ARR added in the quarter in dollars
+        net_burn:                  Monthly net cash burn in dollars (positive = burning cash)
+    """
+    metrics: dict = {}
+    warnings: list[str] = []
+
+    tv_gross_margin: float | None = None
+    tv_growth: float | None = None
+
+    if symbol:
+        try:
+            from tradingview_screener import Query, Column
+
+            _, rows = (
+                Query()
+                .select(
+                    "name", "gross_profit_margin_ttm", "revenue_growth_rate_ttm_5y",
+                    "operating_margin_ttm", "net_profit_margin_ttm",
+                    "market_cap_basic", "close",
+                )
+                .where(Column("name") == symbol.upper())
+                .set_markets(_resolve_screener(screener))
+                .limit(1)
+                .get_scanner_data()
+            )
+            if not rows.empty:
+                raw = {k: (None if str(v) == "nan" else v) for k, v in rows.iloc[0].to_dict().items()}
+                if raw.get("gross_profit_margin_ttm") is not None:
+                    tv_gross_margin = round(raw["gross_profit_margin_ttm"] * 100, 2)
+                if raw.get("revenue_growth_rate_ttm_5y") is not None:
+                    tv_growth = round(raw["revenue_growth_rate_ttm_5y"] * 100, 2)
+                metrics["symbol"] = symbol.upper()
+                metrics["market_cap"] = raw.get("market_cap_basic")
+                metrics["price"] = raw.get("close")
+        except Exception as e:
+            warnings.append(f"Could not fetch TradingView data: {e}")
+
+    effective_gross_margin = gross_margin_pct if gross_margin_pct is not None else tv_gross_margin
+    effective_growth = arr_growth_pct if arr_growth_pct is not None else tv_growth
+
+    metrics["inputs"] = {
+        "arr": arr,
+        "arr_growth_pct": effective_growth,
+        "gross_margin_pct": effective_gross_margin,
+        "net_revenue_retention_pct": net_revenue_retention_pct,
+        "cac": cac,
+        "arpu": arpu,
+        "churn_rate_pct": churn_rate_pct,
+        "fcf_margin_pct": fcf_margin_pct,
+        "sales_marketing_spend": sales_marketing_spend,
+        "net_new_arr": net_new_arr,
+        "net_burn": net_burn,
+    }
+
+    computed: dict = {}
+
+    # Rule of 40 = revenue_growth_pct + fcf_margin_pct
+    if effective_growth is not None and fcf_margin_pct is not None:
+        rule_of_40 = round(effective_growth + fcf_margin_pct, 2)
+        computed["rule_of_40"] = {
+            "value": rule_of_40,
+            "grade": "Good (≥40)" if rule_of_40 >= 40 else "Below benchmark (<40)",
+            "components": {
+                "revenue_growth_pct": effective_growth,
+                "fcf_margin_pct": fcf_margin_pct,
+            },
+        }
+    else:
+        missing = []
+        if effective_growth is None:
+            missing.append("arr_growth_pct")
+        if fcf_margin_pct is None:
+            missing.append("fcf_margin_pct")
+        warnings.append(f"Rule of 40 requires: {', '.join(missing)}")
+
+    # LTV = ARPU × gross_margin% / monthly_churn%
+    if (
+        arpu is not None
+        and effective_gross_margin is not None
+        and churn_rate_pct is not None
+        and churn_rate_pct > 0
+    ):
+        ltv = round(arpu * (effective_gross_margin / 100) / (churn_rate_pct / 100), 2)
+        computed["ltv"] = ltv
+
+        if cac is not None and cac > 0:
+            ltv_cac = round(ltv / cac, 2)
+            computed["ltv_cac_ratio"] = {
+                "value": ltv_cac,
+                "grade": "Excellent (≥3)" if ltv_cac >= 3 else "Poor (<3)",
+            }
+
+            monthly_gp_per_customer = arpu * (effective_gross_margin / 100)
+            if monthly_gp_per_customer > 0:
+                cac_payback = round(cac / monthly_gp_per_customer, 1)
+                computed["cac_payback_months"] = {
+                    "value": cac_payback,
+                    "grade": (
+                        "Good (<12 months)" if cac_payback < 12
+                        else "Okay (12–24 months)" if cac_payback < 24
+                        else "High (>24 months)"
+                    ),
+                }
+
+    # Magic Number = net_new_arr (quarterly) / prior_quarter_S&M_spend
+    if (
+        net_new_arr is not None
+        and sales_marketing_spend is not None
+        and sales_marketing_spend > 0
+    ):
+        magic_number = round(net_new_arr / sales_marketing_spend, 2)
+        computed["magic_number"] = {
+            "value": magic_number,
+            "grade": (
+                "Excellent (≥0.75)" if magic_number >= 0.75
+                else "Okay (0.5–0.75)" if magic_number >= 0.5
+                else "Poor (<0.5)"
+            ),
+        }
+
+    # Burn Multiple = net_burn / net_new_arr
+    if net_burn is not None and net_new_arr is not None and net_new_arr > 0:
+        burn_multiple = round(net_burn / net_new_arr, 2)
+        computed["burn_multiple"] = {
+            "value": burn_multiple,
+            "grade": (
+                "Excellent (<1)" if burn_multiple < 1
+                else "Good (1–1.5)" if burn_multiple < 1.5
+                else "Okay (1.5–2)" if burn_multiple < 2
+                else "Poor (>2)"
+            ),
+        }
+
+    # Net Revenue Retention
+    if net_revenue_retention_pct is not None:
+        computed["net_revenue_retention"] = {
+            "value": net_revenue_retention_pct,
+            "grade": (
+                "Best-in-class (≥120%)" if net_revenue_retention_pct >= 120
+                else "Good (100–120%)" if net_revenue_retention_pct >= 100
+                else "Below 100% — shrinking existing base"
+            ),
+        }
+
+    # Gross margin assessment
+    if effective_gross_margin is not None:
+        computed["gross_margin_assessment"] = {
+            "value": effective_gross_margin,
+            "grade": (
+                "Excellent SaaS (≥75%)" if effective_gross_margin >= 75
+                else "Good SaaS (65–75%)" if effective_gross_margin >= 65
+                else "Acceptable (50–65%)" if effective_gross_margin >= 50
+                else "Low for SaaS (<50%)"
+            ),
+        }
+
+    metrics["computed"] = computed
+    if warnings:
+        metrics["warnings"] = warnings
+
+    return json.dumps(metrics, indent=2, default=str)
 
 
 # ---------------------------------------------------------------------------
