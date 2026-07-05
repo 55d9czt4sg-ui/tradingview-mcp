@@ -229,6 +229,8 @@ Once connected to your MCP client, ask your AI assistant any of these:
 - "Calculate my LTV/CAC: ARPU $200/month, gross margin 80%, churn 1.5%, CAC $2400"
 - "My SaaS added $500K net new ARR last quarter on $400K S&M spend — what's the Magic Number?"
 
+**→ See [SaaS Metrics Analysis Guide](./SAAS_METRICS_CRM_ANALYSIS.md) for detailed metrics, benchmarks, and CRM/Salesforce examples**
+
 ## Available Indicators
 
 The `get_indicator_values` tool returns raw numeric values for 40+ TradingView indicators:
