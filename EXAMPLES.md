@@ -499,6 +499,143 @@ TRADE IDEA: Buy MSFT, avoid NVDA until RSI resets, skip AAPL until it shows stre
 
 ---
 
+## Swing Trade Setup: VIAV (Viavi Solutions) — Multi-Timeframe SMC Analysis
+
+This section demonstrates a professional swing trading workflow using **Smart Money Concepts (SMC)** with multi-timeframe analysis on **VIAV (Viavi Solutions — NASDAQ)**.
+
+### What is SMC (Smart Money Concepts)?
+
+SMC is a price-action-based trading methodology that identifies:
+- **Break of Structure (BOS)** — When price breaks a previous swing high or low
+- **Change of Character (CHoCh)** — When momentum shifts, often confirmed by a BOS
+- **Fair Value Gaps (FVG)** — Inefficient price zones where smart money likely has positions
+- **Supply & Demand Zones** — Key levels where institutional buyers/sellers congregate
+- **Multi-timeframe Confluence** — Alignment of signals across daily, 4h, and 1h for high-probability trades
+
+### Swing Trade Entry Setup: VIAV Daily + 4h Confluence
+
+**Goal:** Find a swing trade entry on VIAV where:
+1. **Daily timeframe** shows a higher timeframe trend (BOS + bullish CHoCh)
+2. **4-hour timeframe** shows a pullback to support (confluence with daily support)
+3. **1-hour timeframe** provides precise entry and stop-loss placement
+
+#### Step 1: Analyze the Daily Trend (Higher Timeframe Context)
+
+**Question to AI:**
+> "Analyze VIAV on the daily chart. Show me the technical summary, then get the pivot points and key levels (support/resistance). Is there a clear trend or break of structure?"
+
+**AI Uses:**
+1. `get_technical_analysis(symbol="VIAV", exchange="NASDAQ", screener="america", interval="1d")`
+2. `get_price_data(symbol="VIAV", exchange="NASDAQ", screener="america", interval="1d")`
+
+**Expected Output:**
+```
+VIAV Daily Analysis:
+- Price: $15.40
+- Trend: NEUTRAL to BULLISH (price above EMA20 and EMA50)
+- RSI: 58 (healthy, not overbought)
+- MACD: Bullish histogram, signal above MACD line
+- Pivot Levels:
+  * Support: S1: $15.05 | S2: $14.70
+  * Resistance: R1: $15.75 | R2: $16.10
+- Key Observation: Price broke above a previous resistance at $15.20
+  → This is a Break of Structure (BOS) — bullish signal
+```
+
+#### Step 2: Check 4-Hour Pullback (Entry Timeframe)
+
+**Question to AI:**
+> "Now check VIAV on the 4-hour chart. Show me technical analysis and key levels. Is there a pullback to support (fair value gap or previous support)?"
+
+**AI Uses:**
+1. `get_technical_analysis(symbol="VIAV", exchange="NASDAQ", screener="america", interval="4h")`
+2. `get_price_data(symbol="VIAV", exchange="NASDAQ", screener="america", interval="4h")`
+
+**Expected Output:**
+```
+VIAV 4-Hour Analysis:
+- Price: $15.35
+- Trend: BUY (price near EMA20, above EMA50)
+- RSI: 52 (neutral, room to run)
+- MACD: Neutral but histogram expanding upward
+- Key Levels:
+  * Support: $15.05 (previous resistance turned support — SMC logic)
+  * Resistance: $15.75 (daily R1)
+- Fair Value Gap (FVG): $15.10-$15.15 (unfilled gap from yesterday's spike up)
+  → This is the high-probability entry zone
+```
+
+#### Step 3: Pin Entry Precision with 1-Hour Chart
+
+**Question to AI:**
+> "Give me the 1-hour chart analysis and indicator values for RSI, MACD, and EMA20. I'm looking for a pullback entry into the $15.10-$15.15 support zone."
+
+**AI Uses:**
+1. `get_technical_analysis(symbol="VIAV", exchange="NASDAQ", screener="america", interval="1h")`
+2. `get_indicator_values(symbol="VIAV", exchange="NASDAQ", screener="america", interval="1h", indicators="RSI,MACD.macd,MACD.signal,EMA20,EMA50,close,volume,BB.upper,BB.lower")`
+
+**Expected Output:**
+```
+VIAV 1-Hour Entry Setup:
+- Current Price: $15.32
+- RSI: 48 (pullback, oversold-lite — good buying opportunity)
+- MACD: Histogram recovering (early bullish divergence)
+- EMA20: $15.18 (price above, pullback approaching)
+- Support: $15.05-$15.15 (daily S1 + FVG)
+- Stop Loss: $14.95 (below daily S1, prevents false breaks)
+- Target 1: $15.75 (daily R1)
+- Target 2: $16.10 (daily R2)
+- Risk/Reward Ratio: 1:4 ($0.10 risk for $0.40-$0.65 potential gain)
+```
+
+### Multi-Timeframe Confluence Checklist
+
+Use this to validate your VIAV swing trade setup:
+
+| Timeframe | Signal | Status | Confluence |
+|-----------|--------|--------|-----------|
+| **Daily** | BOS + Bullish CHoCh above $15.20 | ✅ BUY | Higher timeframe confirms trend |
+| **4h** | Pullback to FVG + RSI recovering | ✅ BUY | Entry zone identified |
+| **1h** | RSI < 50 + MACD divergence | ✅ BUY | Precise entry trigger |
+| **Volume** | Volume expanding on daily close | ✅ CONFIRM | Smart money accumulation |
+
+### Trade Execution & Management
+
+**Entry Order:**
+- **Limit Order:** $15.10–$15.15 (into the FVG)
+- **Order Size:** 1 contract or 100 shares (adjust for your risk tolerance)
+
+**Stop Loss:**
+- **Hard Stop:** $14.95 (below daily S1, about -0.17 risk)
+- **Reason:** If price closes below this, the daily BOS is invalidated
+
+**Profit Targets:**
+- **Target 1:** $15.75 (daily R1) — Take 50% profit
+- **Target 2:** $16.10 (daily R2) — Let 50% run to R2
+- **Target 3:** $16.50+ — Trailing stop if momentum persists
+
+**Exit Rules:**
+- **Close below 4h EMA20** → Close position (trend break)
+- **MACD histogram turns red on 4h** → Close half position (momentum loss)
+- **News event** → Exit 50% before event, keep 50% for reaction trade
+
+### What If the Setup Fails?
+
+If VIAV doesn't pull back into $15.10-$15.15:
+- **Re-analyze:** Refresh the 4h chart — is there a new FVG forming?
+- **Trail the Setup:** Buy a break above $15.50 (daily R1 breakout trade instead)
+- **Skip It:** No entry is better than a poor entry. Wait for the next confluence signal
+
+### Key SMC Principles Applied in This Trade
+
+1. **Break of Structure (BOS)** — Daily chart broke above $15.20 (old resistance)
+2. **Fair Value Gaps (FVG)** — 4h chart has unfilled gap at $15.10-$15.15
+3. **Multi-timeframe Confluence** — Daily trend + 4h pullback + 1h entry = high confidence
+4. **Risk/Reward Bias** — At least 1:3 ratio for swing trades (1:4 is excellent)
+5. **Smart Money Logic** — Gaps get filled; support becomes resistance turned support again
+
+---
+
 ## Tips for Effective AI-Assisted Analysis
 
 1. **Ask Natural Questions** — The AI understands context. Say "Is Apple strong?" instead of "Get AAPL analysis."
