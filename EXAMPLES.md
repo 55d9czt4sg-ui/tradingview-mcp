@@ -5,6 +5,11 @@ This guide provides detailed examples of how to use the TradingView MCP Server f
 ## Table of Contents
 
 - [Stock Analysis](#stock-analysis)
+  - [Example 1: Daily Chart Review (AAPL)](#example-1-daily-chart-review-aapl)
+  - [Example 2: Multi-Timeframe Confluence (TSLA)](#example-2-multi-timeframe-confluence-tsla)
+  - [Example 3: Finding Support & Resistance (SPY)](#example-3-finding-support--resistance-spy)
+  - [Example 4: Smart Money Concepts Analysis (RVMD)](#example-4-smart-money-concepts-analysis-rvmd)
+  - [Example 5: Screening for Quality Stocks](#example-5-screening-for-quality-stocks)
 - [Crypto Trading](#crypto-trading)
 - [Futures Analysis](#futures-analysis)
 - [Market Screening](#market-screening)
@@ -77,7 +82,68 @@ SPY Current Analysis (Daily):
 Trading Plan: Watch $427.20 (R1) for resistance. Support at $422.40 (S1).
 ```
 
-### Example 4: Screening for Quality Stocks
+### Example 4: Smart Money Concepts Analysis (RVMD)
+
+**Question to AI:**
+> "Analyze RVMD (Revere Copper & Gold) on the 4-hour chart using Smart Money Concepts. Where are the key support/resistance levels and order blocks?"
+
+**How the AI Uses the Tools:**
+1. Calls `analyze_smc(symbol="RVMD", exchange="NASDAQ", interval="4h")`
+2. Identifies smart money zones, order blocks, and structural levels
+3. Analyzes EMA structure for trend confirmation
+
+**Expected Response:**
+```
+RVMD Smart Money Concepts Analysis (4-Hour Chart):
+
+CURRENT STRUCTURE:
+- Price: $8.45
+- Daily Range: High $8.75 | Low $8.10 | ATR: $0.32
+- Trend: UPTREND (EMA20 > EMA50 > EMA200)
+
+EMA STRUCTURE (Trend Confirmation):
+- EMA20: $8.32 (price above = bullish)
+- EMA50: $8.18 (intact uptrend)
+- EMA200: $8.02 (long-term support holding)
+
+SMART MONEY ZONES (Order Blocks):
+1. Supply Block (Upper): $8.75 (Bollinger Band upper = resistance)
+   - Smart money resistance where sellers control
+   - Previous high where institutional selling occurred
+   
+2. Demand Block (Lower): $8.10 (Bollinger Band lower = support)
+   - Smart money support where buyers stepped in
+   - Previous low where institutional accumulation likely
+
+KEY LEVELS (Sorted by Price):
+- $8.75 — RESISTANCE (Order Block Supply)
+- $8.32 — EMA20 (Dynamic Support)
+- $8.18 — EMA50 (Support)
+- $8.10 — SUPPORT (Order Block Demand)
+- $8.02 — EMA200 (Long-term Support)
+
+MOMENTUM INDICATORS:
+- RSI: 62 (NEUTRAL — healthy momentum, not overbought)
+- Volume: 2.3M (solid buying support)
+
+SMC TRADING INTERPRETATION:
+1. Price is above all key EMAs = Uptrend intact
+2. EMA20 acting as dynamic support = Bulls in control
+3. Demand block at $8.10 holding = Smart money buying zone
+4. Supply block at $8.75 = Next resistance to break
+
+TRADING SETUP:
+- Long Setup: Buy pullback to EMA20 ($8.32) with target at $8.75 (supply block breakout)
+- Stop Loss: Below EMA50 at $8.18 (uptrend confirmation break)
+- Risk: $0.14 | Reward: $0.43 | Ratio: 3:1 (favorable)
+
+SMART MONEY SIGNAL: 
+Institutional buyers have defended the $8.10 level (demand block).
+As long as price holds above EMA20, the uptrend bias remains bullish.
+Watch for a break above $8.75 as the next smart money target.
+```
+
+### Example 5: Screening for Quality Stocks
 
 **Question to AI:**
 > "Find US stocks with volume over 2 million that are up more than 3% today. Sort by volume."
