@@ -712,8 +712,8 @@ async def screen_breakout_scanner(
         market = type_map.get(market_type.lower(), screener)
         q = q.set_markets(market)
 
-        # 1. Price within 2-5% of 52-week high
-        q = q.where(Column("close") >= Column("52_week_high") * 0.95)
+        # Note: 52-week high proximity filtering will be done in post-processing
+        # since tradingview_screener doesn't support arithmetic on Column comparisons
 
         # 2. RSI in 40-70 range (uptrend momentum, not overbought)
         q = q.where(Column("RSI") >= 40)
@@ -755,9 +755,13 @@ async def screen_breakout_scanner(
             ema50 = entry.get("EMA50")
             ema200 = entry.get("EMA200")
 
+            # Post-filter: 52-week high proximity (within 2-5% = 95-100% of high)
             if close and high_52w:
                 proximity_pct = round(((high_52w - close) / close * 100), 2)
                 entry["distance_from_52w_high_pct"] = proximity_pct
+                # Skip if not in breakout zone (> 5% below 52w high)
+                if proximity_pct > 5:
+                    continue
 
             if volume and volume_avg:
                 surge_ratio = round(volume / volume_avg, 2)
