@@ -24,7 +24,18 @@ import re
 from typing import Any
 
 import httpx
-from mcp.server.fastmcp import FastMCP
+
+try:
+    from mcp.server.fastmcp import FastMCP
+except ModuleNotFoundError as exc:  # pragma: no cover - MCP 2.x moved FastMCP to MCPServer
+    try:
+        from mcp.server.mcpserver import MCPServer as FastMCP
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            "Unable to import the MCP server API. Install a supported version via "
+            "'pip install \"mcp[cli]<2\"' or use the v1-compatible API."
+        ) from exc
+
 from tradingview_ta import TA_Handler, Interval
 
 logging.basicConfig(level=logging.INFO)
