@@ -118,26 +118,88 @@ You should see a message confirming the MCP server is running on stdio transport
 }
 ```
 
-### Claude Desktop
+### Claude Desktop (Recommended: local Python virtual environment)
 
-1. Find your config file:
-   - **macOS/Linux:** `~/.config/Claude/claude_desktop_config.json`
-   - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+Use this if you want a reliable local setup that Claude Desktop can launch consistently.
 
-2. Add or update the `mcpServers` section:
+#### 1) Prerequisites
+
+- **Python 3.10+** (`python3 --version` on macOS/Linux, `py -3 --version` on Windows)
+
+#### 2) Create and activate a virtual environment
+
+From your local clone:
+
+**macOS/Linux**
+```bash
+cd /ABSOLUTE/PATH/TO/tradingview-mcp
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
+**Windows (PowerShell)**
+```powershell
+cd C:\ABSOLUTE\PATH\TO\tradingview-mcp
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
+#### 3) Verify startup manually (smoke check)
+
+Run from the repository root after install:
+
+```bash
+python -m tradingview_mcp
+```
+
+The process should start and wait on stdio until stopped (`Ctrl+C`).
+
+#### 4) Configure Claude Desktop
+
+Config file locations:
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Linux:** `~/.config/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+Use absolute paths only.
+
+**macOS/Linux config**
 ```json
 {
   "mcpServers": {
     "tradingview": {
-      "command": "uv",
-      "args": ["tool", "run", "--from", "git+https://github.com/whisperingotter29/tradingview-mcp.git", "tradingview-mcp"]
+      "command": "/ABSOLUTE/PATH/TO/tradingview-mcp/.venv/bin/python",
+      "args": ["-m", "tradingview_mcp"],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
     }
   }
 }
 ```
 
-3. Restart Claude Desktop
-4. The **TradingView** tools will now appear in Claude's tool list
+**Windows config**
+```json
+{
+  "mcpServers": {
+    "tradingview": {
+      "command": "C:\\ABSOLUTE\\PATH\\TO\\tradingview-mcp\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "tradingview_mcp"],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}
+```
+
+#### 5) Restart Claude Desktop
+
+After restart, the **TradingView** tools should appear in Claude's tool list.
 
 ### Cursor / VS Code (Claude Code)
 
@@ -162,9 +224,8 @@ If you've cloned the repo locally and want to point to it directly:
 {
   "mcpServers": {
     "tradingview": {
-      "command": "python",
-      "args": ["-m", "tradingview_mcp.server"],
-      "cwd": "/path/to/tradingview-mcp"
+      "command": "/path/to/tradingview-mcp/.venv/bin/python",
+      "args": ["-m", "tradingview_mcp"]
     }
   }
 }
@@ -175,9 +236,8 @@ If you've cloned the repo locally and want to point to it directly:
 {
   "servers": {
     "tradingview": {
-      "command": "python",
-      "args": ["-m", "tradingview_mcp.server"],
-      "cwd": "/path/to/tradingview-mcp"
+      "command": "/path/to/tradingview-mcp/.venv/bin/python",
+      "args": ["-m", "tradingview_mcp"]
     }
   }
 }
@@ -282,10 +342,21 @@ Use any timeframe with any tool. Multi-timeframe analysis is most powerful for c
 
 **Solutions:**
 1. Verify Python 3.10+ is installed: `python3 --version`
-2. Ensure the server starts manually: `uv run tradingview-mcp` or `tradingview-mcp`
-3. Check the command path in your config file matches your installation
+2. Ensure the server starts manually from your repo: `./.venv/bin/python -m tradingview_mcp` (Windows: `.venv\\Scripts\\python.exe -m tradingview_mcp`)
+3. Check `command` points to an absolute Python path in `.venv`, not a relative path
 4. On Windows, use full paths without relative paths like `~/`
 5. Restart your MCP client (e.g., Claude Desktop, Perplexity)
+
+### "No module named tradingview_mcp"
+
+**Problem:** Claude Desktop starts Python, but import fails.
+
+**Solutions:**
+1. Install in the same virtual environment used by Claude Desktop: `python -m pip install -e .`
+2. Confirm the configured `command` is that venv's Python executable
+3. Re-run smoke test with that exact binary:
+   - macOS/Linux: `/ABSOLUTE/PATH/TO/tradingview-mcp/.venv/bin/python -m tradingview_mcp`
+   - Windows: `C:\\ABSOLUTE\\PATH\\TO\\tradingview-mcp\\.venv\\Scripts\\python.exe -m tradingview_mcp`
 
 ### "Timeout" or "Symbol Not Found"
 
@@ -313,12 +384,12 @@ Use any timeframe with any tool. Multi-timeframe analysis is most powerful for c
 
 ```bash
 # Clone and install dependencies
-git clone https://github.com/whisperingotter29/tradingview-mcp.git
+git clone https://github.com/55d9czt4sg-ui/tradingview-mcp.git
 cd tradingview-mcp
 uv sync
 
 # Run the server in stdio mode (for testing)
-uv run -m tradingview_mcp.server
+uv run -m tradingview_mcp
 
 # Or use the CLI wrapper
 uv run tradingview-mcp
@@ -330,6 +401,7 @@ uv run tradingview-mcp
 tradingview-mcp/
 ├── src/tradingview_mcp/
 │   ├── __init__.py          # Version info
+│   ├── __main__.py          # Python module entrypoint
 │   └── server.py            # MCP server + tool implementations
 ├── pyproject.toml           # Project metadata and dependencies
 ├── README.md                # This file
@@ -355,15 +427,10 @@ See `pyproject.toml` for versions.
 
 ### Testing
 
-No test suite is included yet. To manually test:
+Run tests from the repository root:
 
-```python
-# In Python REPL
-import asyncio
-from tradingview_mcp.server import get_technical_analysis
-
-result = asyncio.run(get_technical_analysis("AAPL", "NASDAQ", "america", "1d"))
-print(result)
+```bash
+python -m pytest
 ```
 
 ## Contributing
