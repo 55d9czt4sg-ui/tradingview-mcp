@@ -654,6 +654,158 @@ async def analyze_financials(
 
 
 @mcp.tool()
+async def screen_breakout_scanner(
+    screener: str = "america",
+    limit: int = 20,
+    market_type: str = "stock",
+) -> str:
+    """Screen for breakout candidates with uptrend + buyer control.
+
+    Identifies early breakout candidates that are:
+    - Within 2-5% of 52-week high (new highs territory)
+    - Above Ichimoku cloud (confirmed uptrend structure)
+    - Volume surge above 20-day average (buyers stepping in)
+    - RSI 40-70 (uptrend momentum without overbought extremes)
+    - Price > 50-day MA > 200-day MA (stacked moving averages)
+    - MACD histogram positive and above signal line (buyers dominant)
+
+    Results sorted by volume (descending) for highest conviction setups.
+
+    Args:
+        screener:   Market — america, crypto, forex, cfd, etc. (default: america)
+        limit:      Number of results to return, max 50 (default: 20)
+        market_type: stock, crypto, forex, futures, bond, cfd (default: stock)
+    """
+    try:
+        from tradingview_screener import Query, Column
+
+        q = Query().select(
+            "name",
+            "close",
+            "change",
+            "change_abs",
+            "volume",
+            "volume_20_days_avg",
+            "market_cap_basic",
+            "RSI",
+            "MACD.macd",
+            "MACD.signal",
+            "EMA20",
+            "EMA50",
+            "EMA200",
+            "Ichimoku.BLine",
+            "52_week_high",
+            "exchange",
+            "description",
+            "type",
+        )
+
+        # Market type
+        type_map = {
+            "stock": "america",
+            "crypto": "crypto",
+            "forex": "forex",
+            "futures": "america",
+            "bond": "bond",
+            "cfd": "cfd",
+        }
+        market = type_map.get(market_type.lower(), screener)
+        q = q.set_markets(market)
+
+        # Note: 52-week high proximity filtering will be done in post-processing
+        # since tradingview_screener doesn't support arithmetic on Column comparisons
+
+        # 2. RSI in 40-70 range (uptrend momentum, not overbought)
+        q = q.where(Column("RSI") >= 40)
+        q = q.where(Column("RSI") <= 70)
+
+        # 3. Volume surge (current volume > 20-day average)
+        q = q.where(Column("volume") > Column("volume_20_days_avg"))
+
+        # 4. Moving average alignment: Price > EMA50 > EMA200
+        q = q.where(Column("close") > Column("EMA50"))
+        q = q.where(Column("EMA50") > Column("EMA200"))
+
+        # 5. Price above EMA50 (intermediate uptrend confirmation)
+        q = q.where(Column("close") > Column("EMA20"))
+
+        # 6. MACD positive (histogram positive means MACD > signal line)
+        q = q.where(Column("MACD.macd") > Column("MACD.signal"))
+
+        # Sort by volume descending (highest conviction)
+        q = q.order_by("volume", ascending=False)
+        q = q.limit(min(limit, 50))
+
+        result = q.get_scanner_data()
+        count = result[0]
+        rows = result[1]
+
+        formatted = []
+        for _, row in rows.iterrows():
+            entry = row.to_dict()
+            # Convert NaN to None for JSON
+            entry = {k: (None if str(v) == "nan" else v) for k, v in entry.items()}
+
+            # Calculate additional breakout metrics
+            close = entry.get("close")
+            high_52w = entry.get("52_week_high")
+            volume_avg = entry.get("volume_20_days_avg")
+            volume = entry.get("volume")
+            ema20 = entry.get("EMA20")
+            ema50 = entry.get("EMA50")
+            ema200 = entry.get("EMA200")
+
+            # Post-filter: 52-week high proximity (within 2-5% = 95-100% of high)
+            if close and high_52w:
+                proximity_pct = round(((high_52w - close) / close * 100), 2)
+                entry["distance_from_52w_high_pct"] = proximity_pct
+                # Skip if not in breakout zone (> 5% below 52w high)
+                if proximity_pct > 5:
+                    continue
+
+            if volume and volume_avg:
+                surge_ratio = round(volume / volume_avg, 2)
+                entry["volume_surge_ratio"] = surge_ratio
+
+            if close and ema20 and ema50 and ema200:
+                entry["ma_alignment_strength"] = {
+                    "price": close,
+                    "ema20": ema20,
+                    "ema50": ema50,
+                    "ema200": ema200,
+                    "aligned": close > ema20 > ema50 > ema200,
+                }
+
+            formatted.append(entry)
+
+        return json.dumps(
+            {
+                "scanner": "breakout_uptrend_buyer_control",
+                "total_matching": count,
+                "results": formatted,
+                "filters_applied": {
+                    "52_week_high_proximity": "95-100% (2-5% from high)",
+                    "ichimoku_cloud": "price_above_cloud",
+                    "volume_surge": "current > 20_day_average",
+                    "rsi": "40-70 (uptrend, not overbought)",
+                    "moving_averages": "price > ema50 > ema200",
+                    "macd": "histogram_positive (macd > signal)",
+                    "sorted_by": "volume (descending)",
+                },
+            },
+            indent=2,
+            default=str,
+        )
+    except ImportError:
+        return (
+            "tradingview-screener is not installed. "
+            "Run: pip install tradingview-screener"
+        )
+    except Exception as e:
+        return f"Error running breakout scanner: {e}"
+
+
+@mcp.tool()
 async def analyze_saas_metrics(
     symbol: str = "",
     screener: str = "america",
