@@ -24,7 +24,12 @@ import re
 from typing import Any
 
 import httpx
-from mcp.server.fastmcp import FastMCP
+
+try:
+    from mcp.server.fastmcp import FastMCP
+except ImportError:  # pragma: no cover - compatibility for mcp v2+
+    from mcp.server.mcpserver import MCPServer as FastMCP
+
 from tradingview_ta import TA_Handler, Interval
 
 logging.basicConfig(level=logging.INFO)

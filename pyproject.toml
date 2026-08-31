@@ -15,7 +15,7 @@ classifiers = [
     "Topic :: Office/Business :: Financial :: Investment",
 ]
 dependencies = [
-    "mcp[cli]>=1.2.0",
+    "mcp[cli]>=1.2.0,<2.0",
     "tradingview-ta>=3.3.0",
     "tradingview-screener>=2.5.0",
     "httpx>=0.27.0",
