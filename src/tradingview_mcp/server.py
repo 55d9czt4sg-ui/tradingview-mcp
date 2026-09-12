@@ -505,7 +505,7 @@ async def analyze_smc(
             ])
 
         from tradingview_ta import Interval
-        if interval != Interval.INTERVAL_1_MINUTE:
+        if analysis.interval != Interval.INTERVAL_1_MINUTE:
             bb_upper = indicators.get("BB.upper")
             bb_lower = indicators.get("BB.lower")
             if bb_upper is not None and bb_lower is not None:
@@ -792,7 +792,7 @@ async def screen_breakout_scanner(
         return json.dumps(
             {
                 "scanner": "breakout_uptrend_buyer_control",
-                "total_matching": count,
+                "total_matching": len(formatted),
                 "results": formatted,
                 "filters_applied": {
                     "52_week_high_proximity": "95-100% (2-5% from high)",
