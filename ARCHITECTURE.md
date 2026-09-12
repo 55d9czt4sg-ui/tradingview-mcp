@@ -318,7 +318,7 @@ The server communicates with AI clients via JSON-RPC over stdio:
 
 ## Testing
 
-### Unit Tests (Future)
+### Automated Tests
 
 ```python
 import pytest
@@ -330,6 +330,12 @@ async def test_get_technical_analysis_aapl():
     data = json.loads(result)
     assert data["symbol"] == "AAPL"
     assert "summary" in data
+```
+
+The repository includes pytest-based unit and mocked integration coverage in `tests/`. Run the suite with:
+
+```bash
+python -m pytest
 ```
 
 ### Manual Testing

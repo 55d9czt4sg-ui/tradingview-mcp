@@ -347,7 +347,7 @@ async def screen_market(
             "cfd": "cfd",
         }
         market = type_map.get(market_type.lower(), screener)
-        q = q.set_markets(market)
+        q = q.set_markets(_resolve_screener(market))
 
         # Filters
         if min_volume is not None:
@@ -721,7 +721,7 @@ async def screen_breakout_scanner(
             "cfd": "cfd",
         }
         market = type_map.get(market_type.lower(), screener)
-        q = q.set_markets(market)
+        q = q.set_markets(_resolve_screener(market))
 
         # Note: 52-week high proximity filtering will be done in post-processing
         # since tradingview_screener doesn't support arithmetic on Column comparisons
@@ -770,8 +770,8 @@ async def screen_breakout_scanner(
             if close and high_52w:
                 proximity_pct = round(((high_52w - close) / close * 100), 2)
                 entry["distance_from_52w_high_pct"] = proximity_pct
-                # Skip if not in breakout zone (> 5% below 52w high)
-                if proximity_pct > 5:
+                # Skip if not in breakout zone (within 2-5% of 52w high)
+                if proximity_pct < 2 or proximity_pct > 5:
                     continue
 
             if volume and volume_avg:

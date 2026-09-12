@@ -804,12 +804,33 @@ class TestScreenBreakoutScanner:
                     "description": "Microsoft Corp.",
                     "type": "stock",
                 },
+                {
+                    "name": "NVDA",
+                    "close": 100.0,
+                    "change": 1.5,
+                    "change_abs": 1.48,
+                    "volume": 3_000_000,
+                    "volume_20_days_avg": 1_500_000,
+                    "market_cap_basic": 4_000_000_000_000,
+                    "RSI": 62.0,
+                    "MACD.macd": 1.7,
+                    "MACD.signal": 1.2,
+                    "EMA20": 99.0,
+                    "EMA50": 96.0,
+                    "EMA200": 92.0,
+                    "Ichimoku.BLine": 95.0,
+                    "52_week_high": 101.0,
+                    "exchange": "NASDAQ",
+                    "description": "NVIDIA Corp.",
+                    "type": "stock",
+                },
             ])
-            mock_query.get_scanner_data.return_value = (2, df)
+            mock_query.get_scanner_data.return_value = (3, df)
 
-            result = await screen_breakout_scanner()
+            result = await screen_breakout_scanner(screener="AMERICA", market_type="other")
             data = json.loads(result)
 
+            mock_query.set_markets.assert_called_once_with("america")
             assert data["scanner"] == "breakout_uptrend_buyer_control"
             assert data["total_matching"] == 1
             assert len(data["results"]) == 1

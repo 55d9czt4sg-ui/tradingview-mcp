@@ -353,10 +353,15 @@ See `pyproject.toml` for versions.
 
 ### Testing
 
-No test suite is included yet. To manually test:
+Run the automated pytest suite:
+
+```bash
+python -m pytest
+```
+
+For manual MCP verification, you can still run a focused check in a Python REPL:
 
 ```python
-# In Python REPL
 import asyncio
 from tradingview_mcp.server import get_technical_analysis
 

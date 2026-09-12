@@ -325,9 +325,9 @@ pip install -e .
 - `screen_market` with different sorts (change, volume, RSI)
 - `get_price_data` with various timeframes and intervals
 
-### No Automated Tests Currently
+### Automated Tests
 
-The project has no test suite yet. Any tool additions should be manually verified with real MCP client integrations.
+The project includes a pytest suite under `tests/`. Run `python -m pytest` after tool changes, and use manual MCP client verification only for behavior that depends on live integrations or end-to-end runtime wiring.
 
 ---
 
