@@ -23,8 +23,13 @@ class TestResolveInterval:
         assert _resolve_interval("1h") == TVInterval.INTERVAL_1_HOUR
         assert _resolve_interval("1d") == TVInterval.INTERVAL_1_DAY
         assert _resolve_interval("1w") == TVInterval.INTERVAL_1_WEEK
-        # Note: "1M" (month) is case-sensitive but function lowercases all input
-        # so this resolves to "1m" (minute) — potential bug to fix separately
+        assert _resolve_interval("1M") == TVInterval.INTERVAL_1_MONTH
+
+    def test_month_alias_is_not_mistaken_for_minute(self):
+        """Test that TradingView's monthly alias resolves to the month interval."""
+        assert _resolve_interval("1M") == Interval.INTERVAL_1_MONTH
+        assert _resolve_interval("  1M  ") == Interval.INTERVAL_1_MONTH
+        assert _resolve_interval("1m") == Interval.INTERVAL_1_MINUTE
 
     def test_case_insensitive(self):
         """Test that interval resolution is case-insensitive."""

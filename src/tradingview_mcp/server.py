@@ -84,7 +84,20 @@ SCREENER_MAP: dict[str, str] = {
 
 def _resolve_interval(interval: str) -> str:
     """Return the Interval constant string from a human-friendly key."""
-    key = interval.strip().lower()
+    value = interval.strip()
+    if not value:
+        raise ValueError(
+            f"Unknown interval '{interval}'. "
+            f"Valid values: {', '.join(INTERVAL_MAP.keys())}"
+        )
+
+    # TradingView uses "1M" for a monthly interval; lowercasing would incorrectly
+    # convert it into the 1-minute interval. Only the explicit month alias should
+    # map here.
+    if value == "1M":
+        return Interval.INTERVAL_1_MONTH
+
+    key = value.lower()
     if key in INTERVAL_MAP:
         return INTERVAL_MAP[key]
     raise ValueError(
