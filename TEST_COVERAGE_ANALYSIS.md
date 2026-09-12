@@ -1,37 +1,36 @@
 # Test Coverage Analysis — TradingView MCP Server
 
-**Date:** 2026-06-25  
-**Status:** Current test coverage is **0%** — no automated tests exist.
+**Date:** 2026-09-12  
+**Status:** Automated pytest coverage is now established, with core helper and tool-path coverage in place and the largest remaining gaps in the newer Notion sync modules.
 
 ---
 
 ## Executive Summary
 
-The TradingView MCP Server has **no automated tests**. The codebase implements 6 critical MCP tools that interact with external APIs (TradingView technical analysis, market screening, and symbol search). Without tests, the server is vulnerable to:
+The TradingView MCP Server now has an automated pytest suite covering helper behavior and mocked tool execution paths. The main remaining risk is uneven coverage: the new test suite protects the core MCP server flows, but newer modules and some exception paths still need dedicated tests.
 
 - Silent regressions when dependencies update
 - Edge-case failures in data transformation pipelines
 - Incorrect error handling breaking AI assistant workflows
 - Inability to safely refactor or extend functionality
 
-This document identifies key testing gaps and proposes a practical testing strategy.
+This document summarizes the current baseline and the highest-value next steps to improve coverage further.
 
 ---
 
-## Current State: Zero Test Infrastructure
+## Current State: Pytest Baseline In Place
 
 ### What Exists
-- **Source code:** `src/tradingview_mcp/server.py` (430 lines)
-- **Test files:** None
-- **Test framework configuration:** None (no pytest, tox, coverage config)
-- **CI/CD test gates:** None
+- **Source code:** `src/tradingview_mcp/server.py` plus Notion sync modules under `src/tradingview_mcp/`
+- **Test files:** `tests/test_helpers.py`, `tests/test_tools.py`, `tests/conftest.py`
+- **Test framework configuration:** `pytest.ini`, pytest extras in `pyproject.toml`, coverage output
+- **Execution command:** `python -m pytest`
 
 ### What's Missing
-- Unit tests for helper functions
-- Integration tests for MCP tools
-- Mock tests for external API calls
-- Error handling validation
-- Data transformation validation
+- Focused tests for `daily_sync.py`, `notion_sync.py`, and `setup_notion.py`
+- Broader exception-path validation for integration failures
+- CI/CD test gates
+- Ongoing maintenance as new tools are added
 
 ---
 
@@ -244,12 +243,13 @@ for _, row in rows.iterrows():
 
 ## Recommended Testing Strategy
 
-### Phase 1: Unit Tests (Week 1)
-**Focus:** Helper functions, input validation, data transformation
+### Phase 1: Expand Unit Tests
+**Focus:** Helper functions, input validation, data transformation gaps
 
-**Files to create:**
-- `tests/test_helpers.py` — Unit tests for _resolve_*, _format_*, _build_*
-- `tests/test_validators.py` — Parameter validation tests
+**Existing coverage to build on:**
+- `tests/test_helpers.py` — Helper tests already present
+- `tests/test_tools.py` — Mocked integration coverage already present
+- `tests/conftest.py` — Shared fixtures already present
 
 **Coverage target:** 90%+ for helper functions
 
@@ -265,12 +265,13 @@ def test_resolve_interval_invalid():
         _resolve_interval("99m")
 ```
 
-### Phase 2: Integration Tests with Mocks (Week 2)
+### Phase 2: Expand Integration Tests with Mocks
 **Focus:** API interactions without hitting live APIs
 
-**Files to create:**
-- `tests/test_tools.py` — Mocked integration tests for each tool
-- `tests/conftest.py` — Pytest fixtures for mock Analysis and Handler
+**Priority additions:**
+- Notion sync workflows
+- Daily sync orchestration
+- Breakout and financial screening edge cases
 
 **Coverage target:** 70%+ for tool functions
 
@@ -293,11 +294,11 @@ async def test_get_technical_analysis_success(mock_handler):
     assert data["summary"] == "BUY"
 ```
 
-### Phase 3: Error Handling & Resilience (Week 3)
+### Phase 3: Error Handling & Resilience
 **Focus:** Network failures, malformed responses, timeout handling
 
-**Files to create:**
-- `tests/test_error_handling.py` — Error scenarios
+**Recommended additions:**
+- `tests/test_error_handling.py` — Cross-tool error scenarios
 
 **Coverage target:** 80%+ for exception paths
 
@@ -403,34 +404,34 @@ pytest -m asyncio
 
 | Category | Current | Target | Timeline | Effort |
 |----------|---------|--------|----------|--------|
-| Helper functions | 0% | 90% | Week 1 | 3 hours |
-| Tool execution | 0% | 70% | Week 2 | 5 hours |
-| Error handling | 0% | 80% | Week 3 | 4 hours |
-| Edge cases | 0% | 60% | Ongoing | 2 hours/week |
-| **Overall** | **0%** | **75%** | **3 weeks** | **~14 hours** |
+| Helper functions | Baseline coverage in place | 90% | Ongoing | 1-2 hours |
+| Tool execution | Baseline coverage in place | 80% | Ongoing | 2-4 hours |
+| Error handling | Partial | 80% | Next increment | 2-3 hours |
+| Notion sync modules | Minimal | 70% | Next increment | 3-5 hours |
+| **Overall** | **Core server paths covered** | **75%+** | **Incremental** | **~8-12 hours** |
 
 ---
 
-## Quick Wins (Start Here)
+## Quick Wins (Next)
 
-### 1. **Test `_resolve_interval()`** (30 min)
-- Valid cases: "1d", "5m", "1h"
-- Invalid case: "99m" raises ValueError
-- Edge cases: "  1D  " (whitespace, uppercase)
+### 1. **Add Notion sync module tests**
+- Mock the Notion client for create/update flows
+- Validate property mapping and payload formatting
+- Cover failure reporting for missing configuration
 
-### 2. **Test `_resolve_screener()`** (20 min)
-- All aliases: "usa" → "america", "crypto" → "crypto"
-- Fallback: Unknown screener returns as-is
-- Case normalization
+### 2. **Add daily sync orchestration tests**
+- Mock symbol iteration and analysis fetches
+- Verify sync summary output
+- Validate partial-failure handling
 
-### 3. **Test `_format_summary()` with missing fields** (30 min)
-- Mock Analysis with None fields
-- Ensure output doesn't crash
-- Verify JSON serializability
+### 3. **Expand exception-path coverage**
+- Network failures for symbol search and screeners
+- Invalid or missing TradingView fields
+- Notion API failures and retries
 
-### 4. **Test `screen_market()` parameter clamp** (20 min)
-- Verify limit=100 becomes limit=50
-- Verify negative min_volume handled
+### 4. **Wire tests into CI**
+- Run `python -m pytest` on pull requests
+- Fail fast on regressions in tool output contracts
 
 ---
 
@@ -445,9 +446,7 @@ pytest -m asyncio
 
 ## Next Steps
 
-1. Set up testing infrastructure (pytest, fixtures)
-2. Write unit tests for helper functions
-3. Create mock fixtures for Analysis and Handler
-4. Add integration tests for each tool
-5. Add error scenario tests
-6. Integrate coverage checks into CI/CD
+1. Add focused tests for `notion_sync.py`, `daily_sync.py`, and `setup_notion.py`
+2. Expand failure-path coverage for TradingView and Notion API errors
+3. Add regression tests for future tool additions as they land
+4. Integrate `python -m pytest` into CI/CD

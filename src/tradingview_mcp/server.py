@@ -347,7 +347,7 @@ async def screen_market(
             "cfd": "cfd",
         }
         market = type_map.get(market_type.lower(), screener)
-        q = q.set_markets(market)
+        q = q.set_markets(_resolve_screener(market))
 
         # Filters
         if min_volume is not None:
@@ -505,7 +505,7 @@ async def analyze_smc(
             ])
 
         from tradingview_ta import Interval
-        if interval != Interval.INTERVAL_1_MINUTE:
+        if analysis.interval != Interval.INTERVAL_1_MINUTE:
             bb_upper = indicators.get("BB.upper")
             bb_lower = indicators.get("BB.lower")
             if bb_upper is not None and bb_lower is not None:
@@ -721,7 +721,7 @@ async def screen_breakout_scanner(
             "cfd": "cfd",
         }
         market = type_map.get(market_type.lower(), screener)
-        q = q.set_markets(market)
+        q = q.set_markets(_resolve_screener(market))
 
         # Note: 52-week high proximity filtering will be done in post-processing
         # since tradingview_screener doesn't support arithmetic on Column comparisons
@@ -733,14 +733,17 @@ async def screen_breakout_scanner(
         # 3. Volume surge (current volume > 20-day average)
         q = q.where(Column("volume") > Column("volume_20_days_avg"))
 
-        # 4. Moving average alignment: Price > EMA50 > EMA200
+        # 4. Price above Ichimoku baseline (trend confirmation)
+        q = q.where(Column("close") > Column("Ichimoku.BLine"))
+
+        # 5. Moving average alignment: Price > EMA50 > EMA200
         q = q.where(Column("close") > Column("EMA50"))
         q = q.where(Column("EMA50") > Column("EMA200"))
 
-        # 5. Price above EMA50 (intermediate uptrend confirmation)
+        # 6. Price above EMA20 (short-term momentum confirmation)
         q = q.where(Column("close") > Column("EMA20"))
 
-        # 6. MACD positive (histogram positive means MACD > signal line)
+        # 7. MACD positive (histogram positive means MACD > signal line)
         q = q.where(Column("MACD.macd") > Column("MACD.signal"))
 
         # Sort by volume descending (highest conviction)
@@ -770,8 +773,8 @@ async def screen_breakout_scanner(
             if close and high_52w:
                 proximity_pct = round(((high_52w - close) / close * 100), 2)
                 entry["distance_from_52w_high_pct"] = proximity_pct
-                # Skip if not in breakout zone (> 5% below 52w high)
-                if proximity_pct > 5:
+                # Skip if not in breakout zone (within 2-5% of 52w high)
+                if proximity_pct < 2 or proximity_pct > 5:
                     continue
 
             if volume and volume_avg:
@@ -792,7 +795,7 @@ async def screen_breakout_scanner(
         return json.dumps(
             {
                 "scanner": "breakout_uptrend_buyer_control",
-                "total_matching": count,
+                "total_matching": len(formatted),
                 "results": formatted,
                 "filters_applied": {
                     "52_week_high_proximity": "95-100% (2-5% from high)",

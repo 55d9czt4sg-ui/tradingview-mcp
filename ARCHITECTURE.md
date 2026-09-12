@@ -29,6 +29,10 @@ The TradingView MCP Server is a lightweight bridge between AI assistants and Tra
 │  │  - search_symbol()               │   │
 │  │  - screen_market()               │   │
 │  │  - get_price_data()              │   │
+│  │  - analyze_smc()                 │   │
+│  │  - analyze_financials()          │   │
+│  │  - screen_breakout_scanner()     │   │
+│  │  - analyze_saas_metrics()        │   │
 │  └──────────────────────────────────┘   │
 │  ┌──────────────────────────────────┐   │
 │  │ TradingView APIs                 │   │
@@ -61,7 +65,7 @@ mcp = FastMCP(
 
 ### 2. Tool Implementations
 
-Each tool is an async function decorated with `@mcp.tool()`. Tools accept user inputs and return JSON strings.
+Each tool is an async function decorated with `@mcp.tool()`. The current public tool set covers technical analysis, market screening, Smart Money Concepts, financial analysis, breakout scanning, and SaaS metrics. Tools accept user inputs and return JSON strings.
 
 **Pattern:**
 ```python
@@ -318,7 +322,7 @@ The server communicates with AI clients via JSON-RPC over stdio:
 
 ## Testing
 
-### Unit Tests (Future)
+### Automated Tests
 
 ```python
 import pytest
@@ -330,6 +334,12 @@ async def test_get_technical_analysis_aapl():
     data = json.loads(result)
     assert data["symbol"] == "AAPL"
     assert "summary" in data
+```
+
+The repository includes pytest-based unit and mocked integration coverage in `tests/`. Run the suite with:
+
+```bash
+python -m pytest
 ```
 
 ### Manual Testing

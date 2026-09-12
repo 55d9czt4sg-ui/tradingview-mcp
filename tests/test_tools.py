@@ -10,6 +10,7 @@ from tradingview_mcp.server import (
     get_indicator_values,
     search_symbol,
     screen_market,
+    screen_breakout_scanner,
     get_price_data,
     analyze_smc,
     analyze_financials,
@@ -568,6 +569,31 @@ class TestAnalyzeSMC:
         assert "Error analyzing SMC" in result
         assert not result.startswith("{")  # Not JSON
 
+    async def test_1m_interval_omits_bollinger_bands(self, mock_handler_class):
+        """Test that 1-minute SMC output excludes Bollinger Bands."""
+        from tradingview_ta import Interval
+
+        handler_class, mock_handler = mock_handler_class
+        mock_analysis = Mock()
+        mock_analysis.symbol = "AAPL"
+        mock_analysis.exchange = "NASDAQ"
+        mock_analysis.interval = Interval.INTERVAL_1_MINUTE
+        mock_analysis.time = "2026-06-25 16:00"
+        mock_analysis.indicators = {
+            "close": 190.5,
+            "high": 192.0,
+            "low": 188.0,
+            "BB.upper": 195.0,
+            "BB.lower": 186.0,
+        }
+
+        mock_handler.get_analysis.return_value = mock_analysis
+
+        result = await analyze_smc("AAPL", "NASDAQ", interval="1m")
+        data = json.loads(result)
+
+        assert "bollinger_bands" not in data["smc_analysis"]
+
 
 @pytest.mark.asyncio
 class TestAnalyzeFinancials:
@@ -718,6 +744,100 @@ class TestAnalyzeFinancials:
         with patch("builtins.__import__", side_effect=mock_import):
             result = await analyze_financials("AAPL")
             assert "tradingview-screener is not installed" in result
+
+
+@pytest.mark.asyncio
+class TestScreenBreakoutScanner:
+    """Tests for screen_breakout_scanner() tool."""
+
+    async def test_filters_results_and_reports_filtered_count(self):
+        """Test 52-week-high post-filtering and result count reporting."""
+        with patch("tradingview_screener.Query") as mock_query_class:
+            import pandas as pd
+
+            mock_query = Mock()
+            mock_query_class.return_value = mock_query
+            mock_query.select.return_value = mock_query
+            mock_query.where.return_value = mock_query
+            mock_query.set_markets.return_value = mock_query
+            mock_query.order_by.return_value = mock_query
+            mock_query.limit.return_value = mock_query
+
+            df = pd.DataFrame([
+                {
+                    "name": "AAPL",
+                    "close": 100.0,
+                    "change": 1.2,
+                    "change_abs": 1.19,
+                    "volume": 2_000_000,
+                    "volume_20_days_avg": 1_000_000,
+                    "market_cap_basic": 3_000_000_000_000,
+                    "RSI": 60.0,
+                    "MACD.macd": 1.5,
+                    "MACD.signal": 1.0,
+                    "EMA20": 98.0,
+                    "EMA50": 95.0,
+                    "EMA200": 90.0,
+                    "Ichimoku.BLine": 94.0,
+                    "52_week_high": 104.0,
+                    "exchange": "NASDAQ",
+                    "description": "Apple Inc.",
+                    "type": "stock",
+                },
+                {
+                    "name": "MSFT",
+                    "close": 100.0,
+                    "change": 0.8,
+                    "change_abs": 0.79,
+                    "volume": 1_500_000,
+                    "volume_20_days_avg": 1_000_000,
+                    "market_cap_basic": 2_000_000_000_000,
+                    "RSI": 58.0,
+                    "MACD.macd": 1.3,
+                    "MACD.signal": 1.0,
+                    "EMA20": 99.0,
+                    "EMA50": 96.0,
+                    "EMA200": 91.0,
+                    "Ichimoku.BLine": 95.0,
+                    "52_week_high": 107.0,
+                    "exchange": "NASDAQ",
+                    "description": "Microsoft Corp.",
+                    "type": "stock",
+                },
+                {
+                    "name": "NVDA",
+                    "close": 100.0,
+                    "change": 1.5,
+                    "change_abs": 1.48,
+                    "volume": 3_000_000,
+                    "volume_20_days_avg": 1_500_000,
+                    "market_cap_basic": 4_000_000_000_000,
+                    "RSI": 62.0,
+                    "MACD.macd": 1.7,
+                    "MACD.signal": 1.2,
+                    "EMA20": 99.0,
+                    "EMA50": 96.0,
+                    "EMA200": 92.0,
+                    "Ichimoku.BLine": 95.0,
+                    "52_week_high": 101.0,
+                    "exchange": "NASDAQ",
+                    "description": "NVIDIA Corp.",
+                    "type": "stock",
+                },
+            ])
+            mock_query.get_scanner_data.return_value = (3, df)
+
+            result = await screen_breakout_scanner(screener="AMERICA", market_type="other")
+            data = json.loads(result)
+
+            mock_query.set_markets.assert_called_once_with("america")
+            assert data["scanner"] == "breakout_uptrend_buyer_control"
+            assert data["total_matching"] == 1
+            assert len(data["results"]) == 1
+            assert data["results"][0]["name"] == "AAPL"
+            assert data["results"][0]["distance_from_52w_high_pct"] == 4.0
+            assert data["results"][0]["volume_surge_ratio"] == 2.0
+            assert data["results"][0]["ma_alignment_strength"]["aligned"] is True
 
 
 @pytest.mark.asyncio
