@@ -733,14 +733,17 @@ async def screen_breakout_scanner(
         # 3. Volume surge (current volume > 20-day average)
         q = q.where(Column("volume") > Column("volume_20_days_avg"))
 
-        # 4. Moving average alignment: Price > EMA50 > EMA200
+        # 4. Price above Ichimoku baseline (trend confirmation)
+        q = q.where(Column("close") > Column("Ichimoku.BLine"))
+
+        # 5. Moving average alignment: Price > EMA50 > EMA200
         q = q.where(Column("close") > Column("EMA50"))
         q = q.where(Column("EMA50") > Column("EMA200"))
 
-        # 5. Price above EMA50 (intermediate uptrend confirmation)
+        # 6. Price above EMA20 (short-term momentum confirmation)
         q = q.where(Column("close") > Column("EMA20"))
 
-        # 6. MACD positive (histogram positive means MACD > signal line)
+        # 7. MACD positive (histogram positive means MACD > signal line)
         q = q.where(Column("MACD.macd") > Column("MACD.signal"))
 
         # Sort by volume descending (highest conviction)

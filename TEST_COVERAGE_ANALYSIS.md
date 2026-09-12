@@ -446,9 +446,7 @@ pytest -m asyncio
 
 ## Next Steps
 
-1. Set up testing infrastructure (pytest, fixtures)
-2. Write unit tests for helper functions
-3. Create mock fixtures for Analysis and Handler
-4. Add integration tests for each tool
-5. Add error scenario tests
-6. Integrate coverage checks into CI/CD
+1. Add focused tests for `notion_sync.py`, `daily_sync.py`, and `setup_notion.py`
+2. Expand failure-path coverage for TradingView and Notion API errors
+3. Add regression tests for future tool additions as they land
+4. Integrate `python -m pytest` into CI/CD

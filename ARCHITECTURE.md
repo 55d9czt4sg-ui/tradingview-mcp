@@ -29,6 +29,10 @@ The TradingView MCP Server is a lightweight bridge between AI assistants and Tra
 │  │  - search_symbol()               │   │
 │  │  - screen_market()               │   │
 │  │  - get_price_data()              │   │
+│  │  - analyze_smc()                 │   │
+│  │  - analyze_financials()          │   │
+│  │  - screen_breakout_scanner()     │   │
+│  │  - analyze_saas_metrics()        │   │
 │  └──────────────────────────────────┘   │
 │  ┌──────────────────────────────────┐   │
 │  │ TradingView APIs                 │   │
@@ -61,7 +65,7 @@ mcp = FastMCP(
 
 ### 2. Tool Implementations
 
-Each tool is an async function decorated with `@mcp.tool()`. Tools accept user inputs and return JSON strings.
+Each tool is an async function decorated with `@mcp.tool()`. The current public tool set covers technical analysis, market screening, Smart Money Concepts, financial analysis, breakout scanning, and SaaS metrics. Tools accept user inputs and return JSON strings.
 
 **Pattern:**
 ```python

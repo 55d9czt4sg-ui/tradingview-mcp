@@ -19,7 +19,11 @@
 tradingview-mcp/
 ├── src/tradingview_mcp/
 │   ├── __init__.py              # Package metadata (version, docstring)
-│   └── server.py                # Main MCP server and all tool definitions
+│   ├── daily_sync.py            # Daily TradingView → Notion sync runner
+│   ├── notion_sync.py           # Notion database integration helpers
+│   ├── server.py                # Main MCP server and all tool definitions
+│   └── setup_notion.py          # Interactive Notion database setup
+├── tests/                       # Pytest suite (helpers + mocked tool tests)
 ├── pyproject.toml               # Package metadata, dependencies, entry point
 ├── uv.lock                      # Locked dependency versions (uv tool)
 ├── README.md                    # User-facing quick-start guide
@@ -29,11 +33,11 @@ tradingview-mcp/
 
 ### Key Files
 
-**`src/tradingview_mcp/server.py`** — The entire server implementation (430 lines):
+**`src/tradingview_mcp/server.py`** — The main MCP server implementation:
 - FastMCP instance setup (`mcp`)
 - Constant maps: `INTERVAL_MAP`, `SCREENER_MAP`
 - Helper functions: `_resolve_interval`, `_resolve_screener`, `_build_handler`, `_format_*`
-- 6 MCP tool definitions (decorated with `@mcp.tool()`)
+- 10 MCP tool definitions (decorated with `@mcp.tool()`)
 - `main()` entrypoint that runs the stdio transport
 
 **`pyproject.toml`** — Python project metadata:

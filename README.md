@@ -25,7 +25,9 @@ This MCP server bridges AI assistants and TradingView's market data, enabling na
 | `search_symbol` | Find symbols by name or ticker | Symbol, exchange, type, description |
 | `screen_market` | Find top gainers, losers, active instruments | Ranked list with technical signals |
 | `get_price_data` | Current snapshot + key levels | OHLCV + pivots, BB, VWAP, P.SAR, ATR |
+| `analyze_smc` | Smart Money Concepts analysis for a symbol | Trend, ATR, support/resistance, EMA structure, order blocks |
 | `analyze_financials` | Fundamental financial analysis for a stock | Valuation, profitability, growth, balance-sheet ratios |
+| `screen_breakout_scanner` | Breakout candidate screener | Post-filtered watchlist near 52-week highs with volume/momentum signals |
 | `analyze_saas_metrics` | SaaS business health metrics | Rule of 40, LTV/CAC, CAC payback, Magic Number, Burn Multiple |
 
 ## Supported Markets
