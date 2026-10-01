@@ -88,6 +88,24 @@ tradingview-mcp/
 
 Supports aliases (e.g., "usa" → "america", "us" → "america").
 
+### Desktop Commander MCP Integration
+
+**Desktop Commander MCP** is an optional companion MCP server that extends Claude Desktop with local system access. Use it to:
+- Write analysis results to files
+- Execute system commands from Claude
+- Manage files and directories
+- Integrate TradingView data with local workflows
+
+**Setup:** See `.claude/DESKTOP_COMMANDER_MCP_SETUP.md` for installation and configuration instructions.
+
+**Example combined workflow:**
+```
+Claude: "Fetch AAPL 1D analysis and save a trading journal entry to ~/trading_journal.csv"
+→ TradingView MCP fetches TA data
+→ Desktop Commander writes to local file
+→ Result: Data persisted locally without manual export
+```
+
 ---
 
 ## Development Workflow
